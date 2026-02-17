@@ -39,8 +39,8 @@ export const exchangeRates: Record<string, number> = {
 // i18n text structure
 export const i18n: Record<string, Record<string, string>> = {
   en: {
-    trending: "Trending Now",
-    trendingSub: "Today's most-tracked celebrity looks",
+    trending: "K-Star's Wardrobe",
+    trendingSub: "Today's most-tracked K-celeb looks worldwide",
     scan: "AI Look Scanner",
     scanSub: "Upload any photo to identify brands & find the best prices",
     closet: "My Closet",
@@ -67,8 +67,8 @@ export const i18n: Record<string, Record<string, string>> = {
     retailPrice: "Retail Price",
   },
   ko: {
-    trending: "지금 핫한 룩",
-    trendingSub: "오늘 가장 많이 추적된 셀럽 룩",
+    trending: "K-스타 워드로브",
+    trendingSub: "오늘 가장 많이 추적된 K-셀럽 룩",
     scan: "AI 룩 스캐너",
     scanSub: "사진을 업로드하면 AI가 브랜드를 식별하고 최저가를 찾아드립니다",
     closet: "마이 클로젯",
@@ -95,8 +95,8 @@ export const i18n: Record<string, Record<string, string>> = {
     retailPrice: "정가",
   },
   ja: {
-    trending: "トレンド",
-    trendingSub: "今日最も注目されたセレブルック",
+    trending: "K-スターのワードローブ",
+    trendingSub: "今日最も注目されたK-セレブルック",
     scan: "AI ルックスキャナー",
     scanSub: "写真をアップロードしてブランドを特定し、最安値を見つけましょう",
     closet: "マイクローゼット",

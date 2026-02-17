@@ -1,12 +1,19 @@
 import { Heart } from "lucide-react";
 import { motion } from "framer-motion";
-import type { CelebLook } from "@/data/mockData";
+import type { CelebLook, SituationTag } from "@/data/mockData";
 
 interface CelebCardProps {
   look: CelebLook;
   index: number;
   onClick: (look: CelebLook) => void;
 }
+
+const tagColors: Record<SituationTag, string> = {
+  AIRPORT: "bg-accent text-accent-foreground",
+  VLOG: "bg-primary text-primary-foreground",
+  STAGE: "bg-checkout text-white",
+  DRAMA: "bg-gold text-background",
+};
 
 const CelebCard = ({ look, index, onClick }: CelebCardProps) => {
   const hasOOS = look.items.some((item) => !item.inStock);
@@ -22,7 +29,7 @@ const CelebCard = ({ look, index, onClick }: CelebCardProps) => {
       <div className="relative overflow-hidden">
         <img
           src={look.image}
-          alt={`${look.celeb} at ${look.event}`}
+          alt={`${look.celeb} — ${look.event}`}
           className="w-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
         />
@@ -30,7 +37,12 @@ const CelebCard = ({ look, index, onClick }: CelebCardProps) => {
         {/* Overlay gradient */}
         <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-        {/* Top badge */}
+        {/* Situation tag */}
+        <span className={`absolute top-3 left-3 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-sm ${tagColors[look.situation]}`}>
+          {look.situation}
+        </span>
+
+        {/* Rare badge */}
         {hasOOS && (
           <span className="absolute top-3 right-3 bg-accent text-accent-foreground text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-sm">
             Rare
@@ -55,7 +67,7 @@ const CelebCard = ({ look, index, onClick }: CelebCardProps) => {
         </div>
       </div>
 
-      {/* Below-image info (always visible) */}
+      {/* Below-image info */}
       <div className="p-3">
         <div className="flex items-center justify-between">
           <p className="text-sm font-display font-semibold tracking-tight">
@@ -64,6 +76,9 @@ const CelebCard = ({ look, index, onClick }: CelebCardProps) => {
           <span className="text-[10px] text-muted-foreground">{look.date}</span>
         </div>
         <p className="text-xs text-muted-foreground mt-0.5 truncate">
+          {look.event}
+        </p>
+        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
           {look.items.map((i) => i.brand).join(" · ")}
         </p>
       </div>
