@@ -7,10 +7,12 @@ import dupe2 from "@/assets/dupe-2.jpg";
 import dupe3 from "@/assets/dupe-3.jpg";
 import CheckoutSheet from "./CheckoutSheet";
 import { useLocale, countries, type Country } from "@/contexts/LocaleContext";
+import type { AnalyzedItem } from "./ScanOverlay";
 
 interface ScanDetailSheetProps {
   open: boolean;
   onClose: () => void;
+  analyzedItems?: AnalyzedItem[];
 }
 
 const retailers = [
@@ -73,7 +75,7 @@ const dupes = [
 
 const conditionFilters: Condition[] = ["All", "Brand New", "Mint", "Very Good", "Fair"];
 
-const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
+const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetProps) => {
   const { country, setCountry, t, formatPrice, calcDuty, calcShipping } = useLocale();
   const [bridgeTarget, setBridgeTarget] = useState<string | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
