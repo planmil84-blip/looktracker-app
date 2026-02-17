@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, ExternalLink, ShoppingBag, AlertTriangle, ArrowRight, Star, Sparkles, Bookmark, BookmarkCheck } from "lucide-react";
+import { X, ExternalLink, ShoppingBag, AlertTriangle, ArrowRight, Star, Sparkles, Bookmark, BookmarkCheck, Globe, ChevronDown } from "lucide-react";
 import jacquemusKnit from "@/assets/jacquemus-knit.jpg";
 import dupe1 from "@/assets/dupe-1.jpg";
 import dupe2 from "@/assets/dupe-2.jpg";
 import dupe3 from "@/assets/dupe-3.jpg";
 import CheckoutSheet from "./CheckoutSheet";
+import { useLocale, countries, type Country } from "@/contexts/LocaleContext";
 
 interface ScanDetailSheetProps {
   open: boolean;
@@ -19,24 +20,48 @@ const retailers = [
   { name: "Mytheresa", label: "Edit Shop", price: null, status: "Sold Out", landed: null },
 ];
 
+type Condition = "All" | "Brand New" | "Mint" | "Very Good" | "Fair";
+
 const preOwned = [
   {
     platform: "eBay",
     price: 280,
-    condition: "Mint Condition",
+    condition: "Mint" as Condition,
     location: "United States",
     url: "https://www.ebay.com/sch/i.html?_nkw=jacquemus+la+maille+valensole",
-    duties: 42,
-    shipping: 25,
+    baseShipping: 25,
   },
   {
     platform: "Vestiaire Collective",
     price: 310,
-    condition: "Gently Used",
+    condition: "Very Good" as Condition,
     location: "France",
     url: "https://www.vestiairecollective.com/search/?q=jacquemus%20valensole",
-    duties: 56,
-    shipping: 35,
+    baseShipping: 35,
+  },
+  {
+    platform: "StockX",
+    price: 350,
+    condition: "Brand New" as Condition,
+    location: "Global",
+    url: "https://stockx.com/search?s=jacquemus%20valensole",
+    baseShipping: 20,
+  },
+  {
+    platform: "Grailed",
+    price: 245,
+    condition: "Very Good" as Condition,
+    location: "Japan",
+    url: "https://www.grailed.com/shop?query=jacquemus+valensole",
+    baseShipping: 30,
+  },
+  {
+    platform: "Mercari",
+    price: 220,
+    condition: "Fair" as Condition,
+    location: "Japan",
+    url: "https://www.mercari.com/search/?keyword=jacquemus+valensole",
+    baseShipping: 28,
   },
 ];
 
@@ -46,11 +71,17 @@ const dupes = [
   { image: dupe3, brand: "Jacquemus", model: "La Maille Rosa Knit", price: 390, originalPrice: null, inStock: false, matchScore: 84 },
 ];
 
+const conditionFilters: Condition[] = ["All", "Brand New", "Mint", "Very Good", "Fair"];
+
 const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
+  const { country, setCountry, t, formatPrice, calcDuty, calcShipping } = useLocale();
   const [bridgeTarget, setBridgeTarget] = useState<string | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
   const [checkoutItem, setCheckoutItem] = useState<{ brand: string; model: string; price: number } | null>(null);
   const [saved, setSaved] = useState(false);
+  const [conditionFilter, setConditionFilter] = useState<Condition>("All");
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const handlePreOwnedClick = (url: string, platform: string) => {
     setBridgeTarget(platform);
@@ -64,6 +95,19 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
     setCheckoutItem({ brand: dupe.brand, model: dupe.model, price: dupe.price });
     setShowCheckout(true);
   };
+
+  const handleCountryChange = (c: Country) => {
+    setIsRecalculating(true);
+    setShowCountryPicker(false);
+    setTimeout(() => {
+      setCountry(c);
+      setIsRecalculating(false);
+    }, 600);
+  };
+
+  const filteredPreOwned = conditionFilter === "All"
+    ? preOwned
+    : preOwned.filter((item) => item.condition === conditionFilter);
 
   return (
     <>
@@ -128,19 +172,81 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <span className="bg-accent/15 text-accent text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-sm border border-accent/30">
-                      Rare
+                      {t("rare")}
                     </span>
                     <span className="bg-accent/15 text-accent text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-sm border border-accent/30 flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" />
-                      Out of Stock
+                      {t("outOfStock")}
                     </span>
                   </div>
                 </div>
                 <div className="mt-3 flex items-center gap-2">
-                  <span className="text-lg font-display font-bold">$490</span>
-                  <span className="text-xs text-muted-foreground">Retail Price</span>
+                  <span className="text-lg font-display font-bold">{formatPrice(490)}</span>
+                  <span className="text-xs text-muted-foreground">{t("retailPrice")}</span>
                 </div>
               </div>
+
+              {/* Country selector */}
+              <div className="px-5 pb-4">
+                <button
+                  onClick={() => setShowCountryPicker(!showCountryPicker)}
+                  className="w-full flex items-center gap-3 p-3 bg-secondary/50 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors"
+                >
+                  <Globe className="w-4 h-4 text-muted-foreground" />
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-base">{country.flag}</span>
+                    <span className="text-sm font-display font-semibold">{country.name}</span>
+                    <span className="text-[10px] text-muted-foreground">· {country.currency}</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showCountryPicker ? "rotate-180" : ""}`} />
+                </button>
+
+                <AnimatePresence>
+                  {showCountryPicker && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mt-2 space-y-1 max-h-[200px] overflow-y-auto"
+                    >
+                      {countries.map((c) => (
+                        <button
+                          key={c.code}
+                          onClick={() => handleCountryChange(c)}
+                          className={`w-full flex items-center gap-2.5 p-2.5 rounded-lg text-left transition-colors ${
+                            country.code === c.code ? "bg-foreground/5 border border-foreground/20" : "hover:bg-secondary/50"
+                          }`}
+                        >
+                          <span className="text-base">{c.flag}</span>
+                          <span className="text-xs font-display font-semibold flex-1">{c.name}</span>
+                          <span className="text-[10px] text-muted-foreground">{c.currencySymbol} {c.currency}</span>
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Recalculating overlay */}
+              <AnimatePresence>
+                {isRecalculating && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="px-5 pb-4"
+                  >
+                    <div className="p-4 bg-gold/5 border border-gold/15 rounded-xl flex items-center gap-3">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                        className="w-5 h-5 border-2 border-gold/30 border-t-gold rounded-full"
+                      />
+                      <p className="text-xs font-display font-semibold text-gold">{t("changingCountry")}</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Save to closet banner */}
               {saved && (
@@ -162,7 +268,7 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
               {/* Global Price Comparison */}
               <div className="px-5 pb-5">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold mb-3">
-                  Global Price Comparison
+                  {t("globalPrice")}
                 </p>
                 <div className="space-y-2">
                   {retailers.map((r, i) => (
@@ -180,11 +286,8 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
                             {r.label}
                           </span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          * Landed cost (duties/shipping) not included
-                        </p>
                       </div>
-                      <span className="text-xs font-bold text-accent uppercase">Sold Out</span>
+                      <span className="text-xs font-bold text-accent uppercase">{t("soldOut")}</span>
                     </motion.div>
                   ))}
                 </div>
@@ -196,83 +299,121 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
                   <div className="flex items-center gap-2 mb-3">
                     <ShoppingBag className="w-4 h-4 text-accent" />
                     <p className="text-xs font-display font-bold uppercase tracking-[0.15em] text-accent">
-                      Find Pre-Owned
+                      {t("findPreOwned")}
                     </p>
                   </div>
                   <p className="text-[11px] text-muted-foreground mb-4">
-                    This item is no longer available new. Browse verified pre-owned listings below.
+                    {t("preOwnedDesc")}
                   </p>
 
-                  <div className="space-y-3">
-                    {preOwned.map((item, i) => (
-                      <motion.button
-                        key={item.platform}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 + i * 0.15 }}
-                        onClick={() => handlePreOwnedClick(item.url, item.platform)}
-                        className="w-full text-left p-4 bg-secondary/80 rounded-xl border border-border hover:border-accent/40 transition-all group relative overflow-hidden"
+                  {/* Condition filter */}
+                  <div className="flex gap-1.5 overflow-x-auto pb-3 -mx-1 px-1 scrollbar-hide">
+                    {conditionFilters.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setConditionFilter(c)}
+                        className={`px-3 py-1.5 rounded-full text-[10px] font-display font-semibold uppercase tracking-wider whitespace-nowrap border transition-colors ${
+                          conditionFilter === c
+                            ? "bg-foreground text-background border-foreground"
+                            : "bg-secondary/50 text-muted-foreground border-border hover:border-muted-foreground/40"
+                        }`}
                       >
-                        {/* Bridge animation */}
-                        <AnimatePresence>
-                          {bridgeTarget === item.platform && (
-                            <motion.div
-                              initial={{ scaleX: 0 }}
-                              animate={{ scaleX: 1 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 0.8, ease: "easeInOut" }}
-                              className="absolute inset-0 bg-accent/10 origin-left z-0"
-                            />
-                          )}
-                        </AnimatePresence>
-
-                        <div className="relative z-10 flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-display font-bold">{item.platform}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {item.condition} · {item.location}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-base font-display font-bold">${item.price}</span>
-                            {bridgeTarget === item.platform ? (
-                              <motion.div animate={{ x: [0, 4, 0] }} transition={{ repeat: Infinity, duration: 0.6 }}>
-                                <ArrowRight className="w-4 h-4 text-accent" />
-                              </motion.div>
-                            ) : (
-                              <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-accent transition-colors" />
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Landed Cost Calculator */}
-                        <div className="relative z-10 mt-3 pt-3 border-t border-border/50">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">
-                            Estimated Total (to South Korea)
-                          </p>
-                          <div className="grid grid-cols-3 gap-2 text-center">
-                            <div>
-                              <p className="text-[10px] text-muted-foreground">Price</p>
-                              <p className="text-xs font-display font-semibold">${item.price}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-muted-foreground">Duties</p>
-                              <p className="text-xs font-display font-semibold">+${item.duties}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-muted-foreground">Shipping</p>
-                              <p className="text-xs font-display font-semibold">+${item.shipping}</p>
-                            </div>
-                          </div>
-                          <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between">
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Landed Total</span>
-                            <span className="text-sm font-display font-bold text-foreground">
-                              ${item.price + item.duties + item.shipping}
-                            </span>
-                          </div>
-                        </div>
-                      </motion.button>
+                        {c === "All" ? t("allConditions") : c}
+                      </button>
                     ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    {filteredPreOwned.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-4">No listings match this filter.</p>
+                    ) : (
+                      filteredPreOwned.map((item, i) => {
+                        const duty = calcDuty(item.price);
+                        const shipping = calcShipping(item.baseShipping);
+                        const total = item.price + duty + shipping;
+
+                        return (
+                          <motion.button
+                            key={item.platform}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 + i * 0.1 }}
+                            onClick={() => handlePreOwnedClick(item.url, item.platform)}
+                            className="w-full text-left p-4 bg-secondary/80 rounded-xl border border-border hover:border-accent/40 transition-all group relative overflow-hidden"
+                          >
+                            {/* Bridge animation */}
+                            <AnimatePresence>
+                              {bridgeTarget === item.platform && (
+                                <motion.div
+                                  initial={{ scaleX: 0 }}
+                                  animate={{ scaleX: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.8, ease: "easeInOut" }}
+                                  className="absolute inset-0 bg-accent/10 origin-left z-0"
+                                />
+                              )}
+                            </AnimatePresence>
+
+                            <div className="relative z-10 flex items-center justify-between">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-display font-bold">{item.platform}</p>
+                                  <span className="text-[9px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                    {item.condition}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.location}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-base font-display font-bold">{formatPrice(item.price)}</span>
+                                {bridgeTarget === item.platform ? (
+                                  <motion.div animate={{ x: [0, 4, 0] }} transition={{ repeat: Infinity, duration: 0.6 }}>
+                                    <ArrowRight className="w-4 h-4 text-accent" />
+                                  </motion.div>
+                                ) : (
+                                  <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-accent transition-colors" />
+                                )}
+                              </div>
+                            </div>
+
+                            {/* All-in Price Calculator */}
+                            <motion.div
+                              key={country.code}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.3 }}
+                              className="relative z-10 mt-3 pt-3 border-t border-border/50"
+                            >
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">
+                                {t("estimatedTotal")} ({country.flag} {country.name})
+                              </p>
+                              <div className="grid grid-cols-3 gap-2 text-center">
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground">{t("price")}</p>
+                                  <p className="text-xs font-display font-semibold">{formatPrice(item.price)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground">{t("duties")}</p>
+                                  <p className="text-xs font-display font-semibold">+{formatPrice(duty)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground">{t("shipping")}</p>
+                                  <p className="text-xs font-display font-semibold">+{formatPrice(shipping)}</p>
+                                </div>
+                              </div>
+                              <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between">
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("landedTotal")}</span>
+                                <span className="text-sm font-display font-bold text-foreground">
+                                  {formatPrice(total)}
+                                </span>
+                              </div>
+                            </motion.div>
+                          </motion.button>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               </div>
@@ -282,7 +423,7 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
                 <div className="flex items-center gap-2 mb-3">
                   <Sparkles className="w-3.5 h-3.5 text-gold" />
                   <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">
-                    AI-Curated Alternatives · Jacquemus SS25
+                    {t("aiAlternatives")} · Jacquemus SS25
                   </p>
                 </div>
                 <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-hide">
@@ -298,7 +439,7 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
                         <img src={dupe.image} alt={dupe.model} className="w-full h-full object-cover" />
                         {!dupe.inStock && (
                           <span className="absolute top-1.5 right-1.5 bg-accent text-accent-foreground text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-sm">
-                            Sold Out
+                            {t("soldOut")}
                           </span>
                         )}
                         <span className="absolute top-1.5 left-1.5 bg-background/80 backdrop-blur-sm text-[8px] font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-0.5">
@@ -310,9 +451,9 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
                         <p className="text-[11px] font-display font-semibold truncate">{dupe.brand}</p>
                         <p className="text-[10px] text-muted-foreground truncate">{dupe.model}</p>
                         <div className="flex items-center gap-1.5 mt-1.5">
-                          <span className="text-xs font-display font-bold">${dupe.price}</span>
+                          <span className="text-xs font-display font-bold">{formatPrice(dupe.price)}</span>
                           {dupe.originalPrice && (
-                            <span className="text-[10px] text-muted-foreground line-through">${dupe.originalPrice}</span>
+                            <span className="text-[10px] text-muted-foreground line-through">{formatPrice(dupe.originalPrice)}</span>
                           )}
                         </div>
                         {dupe.inStock && (
@@ -321,7 +462,7 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
                             className="mt-2 w-full py-1.5 rounded-lg bg-checkout text-checkout-foreground text-[10px] font-display font-bold uppercase tracking-wider hover:bg-checkout-hover transition-colors flex items-center justify-center gap-1"
                           >
                             <ShoppingBag className="w-3 h-3" />
-                            Quick Buy
+                            {t("quickBuy")}
                           </button>
                         )}
                       </div>
