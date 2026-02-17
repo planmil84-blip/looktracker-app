@@ -2,17 +2,19 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, ScanLine, X } from "lucide-react";
 import ScanResults from "./ScanResults";
+import ScanDetailSheet from "./ScanDetailSheet";
 
 const mockScanResults = [
-  { brand: "Gucci", model: "GG Marmont Bag", price: 2300, inStock: true, confidence: 94, top: 45, left: 30 },
-  { brand: "Acne Studios", model: "Leather Jacket", price: 1800, inStock: false, confidence: 87, top: 25, left: 50 },
-  { brand: "Bottega Veneta", model: "Puddle Boots", price: 950, inStock: true, confidence: 91, top: 78, left: 45 },
+  { brand: "JACQUEMUS", model: "La Maille Valensole Knit Top", price: 490, inStock: false, confidence: 96, top: 30, left: 45 },
+  { brand: "Acne Studios", model: "Leather Jacket", price: 1800, inStock: false, confidence: 87, top: 65, left: 35 },
+  { brand: "Bottega Veneta", model: "Puddle Boots", price: 950, inStock: true, confidence: 91, top: 85, left: 50 },
 ];
 
 const ScanOverlay = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
 
   const handleUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -20,12 +22,14 @@ const ScanOverlay = () => {
     const url = URL.createObjectURL(file);
     setUploadedImage(url);
     setScanComplete(false);
+    setShowDetail(false);
     setIsScanning(true);
 
-    // Simulate scan delay
     setTimeout(() => {
       setIsScanning(false);
       setScanComplete(true);
+      // Auto-open detail sheet after scan completes
+      setTimeout(() => setShowDetail(true), 800);
     }, 3500);
   }, []);
 
@@ -33,6 +37,7 @@ const ScanOverlay = () => {
     setUploadedImage(null);
     setIsScanning(false);
     setScanComplete(false);
+    setShowDetail(false);
   };
 
   return (
@@ -86,19 +91,12 @@ const ScanOverlay = () => {
             {/* Scanning overlay */}
             {isScanning && (
               <div className="absolute inset-0 rounded-xl">
-                {/* Dark overlay */}
                 <div className="absolute inset-0 bg-background/40 animate-scan-pulse" />
-
-                {/* Scan line */}
                 <div className="absolute left-0 right-0 h-[2px] bg-accent shadow-[0_0_15px_hsl(var(--accent)),0_0_30px_hsl(var(--accent))] animate-scan-line z-10" />
-
-                {/* Corner brackets */}
                 <div className="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-accent animate-scan-corner" />
                 <div className="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-accent animate-scan-corner" />
                 <div className="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-accent animate-scan-corner" />
                 <div className="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-accent animate-scan-corner" />
-
-                {/* Center icon */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="flex flex-col items-center gap-2">
                     <ScanLine className="w-6 h-6 text-accent animate-pulse" />
@@ -112,11 +110,32 @@ const ScanOverlay = () => {
 
             {/* Results tags */}
             {scanComplete && (
-              <ScanResults results={mockScanResults} />
+              <>
+                <ScanResults results={mockScanResults} />
+                {/* Focus tag on the top item (Jennie's knit) */}
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.5, type: "spring" }}
+                  className="absolute z-30"
+                  style={{ top: "28%", left: "40%" }}
+                >
+                  <button
+                    onClick={() => setShowDetail(true)}
+                    className="relative"
+                  >
+                    <div className="w-5 h-5 rounded-full bg-accent shadow-[0_0_12px_hsl(var(--accent)),0_0_24px_hsl(var(--accent))]" />
+                    <div className="w-5 h-5 rounded-full bg-accent/40 absolute inset-0 animate-ping" />
+                  </button>
+                </motion.div>
+              </>
             )}
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Detail Bottom Sheet */}
+      <ScanDetailSheet open={showDetail} onClose={() => setShowDetail(false)} />
     </div>
   );
 };
