@@ -1,8 +1,8 @@
-import { Search, ScanLine, User } from "lucide-react";
+import { Search, ScanLine, User, ShoppingBag } from "lucide-react";
 
 interface HeaderProps {
-  activeTab: "feed" | "scan";
-  onTabChange: (tab: "feed" | "scan") => void;
+  activeTab: "feed" | "scan" | "closet";
+  onTabChange: (tab: "feed" | "scan" | "closet") => void;
 }
 
 const Header = ({ activeTab, onTabChange }: HeaderProps) => {
@@ -36,6 +36,17 @@ const Header = ({ activeTab, onTabChange }: HeaderProps) => {
           >
             <ScanLine className="w-3.5 h-3.5" />
             Scan
+          </button>
+          <button
+            onClick={() => onTabChange("closet")}
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              activeTab === "closet"
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <ShoppingBag className="w-3.5 h-3.5" />
+            Closet
           </button>
         </nav>
 

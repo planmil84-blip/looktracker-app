@@ -56,6 +56,15 @@ export default {
         "scan-line": "hsl(var(--scan-line))",
         "badge-sold-out": "hsl(var(--badge-sold-out))",
         "badge-in-stock": "hsl(var(--badge-in-stock))",
+        checkout: {
+          DEFAULT: "hsl(var(--checkout))",
+          foreground: "hsl(var(--checkout-foreground))",
+          hover: "hsl(var(--checkout-hover))",
+        },
+        gold: {
+          DEFAULT: "hsl(var(--gold))",
+          foreground: "hsl(var(--gold-foreground))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
