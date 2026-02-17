@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Upload, ScanLine, X } from "lucide-react";
 import ScanResults from "./ScanResults";
 import ScanDetailSheet from "./ScanDetailSheet";
+import AIAnalysisOverlay from "./AIAnalysisOverlay";
 
 const mockScanResults = [
   { brand: "JACQUEMUS", model: "La Maille Valensole Knit Top", price: 490, inStock: false, confidence: 96, top: 30, left: 45 },
@@ -14,6 +15,7 @@ const ScanOverlay = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
 
   const handleUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -23,20 +25,27 @@ const ScanOverlay = () => {
     setUploadedImage(url);
     setScanComplete(false);
     setShowDetail(false);
+    setShowAnalysis(false);
     setIsScanning(true);
 
     setTimeout(() => {
       setIsScanning(false);
       setScanComplete(true);
-      // Auto-open detail sheet after scan completes
-      setTimeout(() => setShowDetail(true), 800);
+      // Show AI analysis overlay after scan
+      setTimeout(() => setShowAnalysis(true), 500);
     }, 3500);
+  }, []);
+
+  const handleAnalysisComplete = useCallback(() => {
+    setShowAnalysis(false);
+    setTimeout(() => setShowDetail(true), 300);
   }, []);
 
   const handleReset = () => {
     setUploadedImage(null);
     setIsScanning(false);
     setScanComplete(false);
+    setShowAnalysis(false);
     setShowDetail(false);
   };
 
@@ -121,13 +130,18 @@ const ScanOverlay = () => {
                   style={{ top: "28%", left: "40%" }}
                 >
                   <button
-                    onClick={() => setShowDetail(true)}
+                    onClick={() => {
+                      if (!showAnalysis) setShowAnalysis(true);
+                    }}
                     className="relative"
                   >
                     <div className="w-5 h-5 rounded-full bg-accent shadow-[0_0_12px_hsl(var(--accent)),0_0_24px_hsl(var(--accent))]" />
                     <div className="w-5 h-5 rounded-full bg-accent/40 absolute inset-0 animate-ping" />
                   </button>
                 </motion.div>
+
+                {/* AI Analysis Overlay */}
+                <AIAnalysisOverlay active={showAnalysis} onComplete={handleAnalysisComplete} />
               </>
             )}
           </motion.div>

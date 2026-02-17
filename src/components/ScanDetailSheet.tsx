@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, ExternalLink, ShoppingBag, AlertTriangle, ArrowRight, Star, Sparkles, Bookmark, BookmarkCheck, Globe, ChevronDown } from "lucide-react";
+import { X, ExternalLink, ShoppingBag, AlertTriangle, ArrowRight, Star, Sparkles, Bookmark, BookmarkCheck, Globe, ChevronDown, Shield, ArrowDownRight } from "lucide-react";
 import jacquemusKnit from "@/assets/jacquemus-knit.jpg";
 import dupe1 from "@/assets/dupe-1.jpg";
 import dupe2 from "@/assets/dupe-2.jpg";
@@ -82,6 +82,26 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
   const [conditionFilter, setConditionFilter] = useState<Condition>("All");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [marketSwitchDone, setMarketSwitchDone] = useState(false);
+  const [showMarketSwitch, setShowMarketSwitch] = useState(false);
+
+  // Trigger market switch animation when sheet opens
+  useEffect(() => {
+    if (open && !marketSwitchDone) {
+      const timer = setTimeout(() => {
+        setShowMarketSwitch(true);
+        setTimeout(() => {
+          setShowMarketSwitch(false);
+          setMarketSwitchDone(true);
+        }, 2500);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+    if (!open) {
+      setMarketSwitchDone(false);
+      setShowMarketSwitch(false);
+    }
+  }, [open]);
 
   const handlePreOwnedClick = (url: string, platform: string) => {
     setBridgeTarget(platform);
@@ -183,6 +203,13 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
                 <div className="mt-3 flex items-center gap-2">
                   <span className="text-lg font-display font-bold">{formatPrice(490)}</span>
                   <span className="text-xs text-muted-foreground">{t("retailPrice")}</span>
+                </div>
+
+                {/* HS Code classification */}
+                <div className="mt-2 px-2.5 py-1.5 bg-secondary/60 rounded-lg border border-border inline-flex items-center gap-2">
+                  <span className="text-[9px] font-mono text-muted-foreground">
+                    HS Code: 6110.30 · Knitted garment · {country.flag} Duty {Math.round(country.dutyRate * 100)}%
+                  </span>
                 </div>
               </div>
 
@@ -292,6 +319,40 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
                   ))}
                 </div>
               </div>
+
+              {/* Market-Switch Bridge Animation */}
+              <AnimatePresence>
+                {showMarketSwitch && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="mx-5 mb-4 p-4 bg-accent/5 border border-accent/30 rounded-xl"
+                  >
+                    <div className="flex items-center gap-3">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                        className="w-5 h-5 border-2 border-accent/30 border-t-accent rounded-full flex-shrink-0"
+                      />
+                      <div>
+                        <p className="text-[11px] font-display font-bold text-accent">
+                          New item is out of stock.
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Switching to Secondary Market (Pre-owned)...
+                        </p>
+                      </div>
+                    </div>
+                    <motion.div
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: 1 }}
+                      transition={{ duration: 2, ease: "easeInOut" }}
+                      className="mt-3 h-1 bg-accent/40 rounded-full origin-left"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Pre-owned with Landed Cost */}
               <div className="px-5 pb-5">
@@ -468,6 +529,16 @@ const ScanDetailSheet = ({ open, onClose }: ScanDetailSheetProps) => {
                       </div>
                     </motion.div>
                   ))}
+                </div>
+              </div>
+
+              {/* Patent Pending Badge */}
+              <div className="px-5 pb-8">
+                <div className="flex items-center justify-center gap-2 py-3 px-4 bg-secondary/30 rounded-xl border border-border">
+                  <Shield className="w-3.5 h-3.5 text-gold" />
+                  <span className="text-[9px] font-display font-bold uppercase tracking-[0.15em] text-muted-foreground">
+                    Patent Pending: AI-Driven Market Bridging System
+                  </span>
                 </div>
               </div>
             </motion.div>
