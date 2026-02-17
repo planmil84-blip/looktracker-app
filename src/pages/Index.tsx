@@ -3,10 +3,11 @@ import Header from "@/components/Header";
 import CelebCard from "@/components/CelebCard";
 import ScanOverlay from "@/components/ScanOverlay";
 import LookDetailSheet from "@/components/LookDetailSheet";
+import ClosetPage from "@/components/ClosetPage";
 import { mockLooks, type CelebLook } from "@/data/mockData";
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<"feed" | "scan">("feed");
+  const [activeTab, setActiveTab] = useState<"feed" | "scan" | "closet">("feed");
   const [selectedLook, setSelectedLook] = useState<CelebLook | null>(null);
 
   return (
@@ -16,7 +17,6 @@ const Index = () => {
       <main className="container py-4">
         {activeTab === "feed" ? (
           <>
-            {/* Section title */}
             <div className="mb-5">
               <h2 className="font-display text-2xl font-bold tracking-tight">
                 Trending Now
@@ -25,8 +25,6 @@ const Index = () => {
                 Today's most-tracked celebrity looks
               </p>
             </div>
-
-            {/* Masonry grid */}
             <div className="masonry-grid">
               {mockLooks.map((look, i) => (
                 <CelebCard
@@ -38,7 +36,7 @@ const Index = () => {
               ))}
             </div>
           </>
-        ) : (
+        ) : activeTab === "scan" ? (
           <>
             <div className="mb-5">
               <h2 className="font-display text-2xl font-bold tracking-tight">
@@ -50,10 +48,11 @@ const Index = () => {
             </div>
             <ScanOverlay />
           </>
+        ) : (
+          <ClosetPage />
         )}
       </main>
 
-      {/* Bottom sheet */}
       <LookDetailSheet
         look={selectedLook}
         onClose={() => setSelectedLook(null)}
