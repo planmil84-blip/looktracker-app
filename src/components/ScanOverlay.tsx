@@ -4,8 +4,50 @@ import { Upload, ScanLine, X } from "lucide-react";
 import ScanResults from "./ScanResults";
 import ScanDetailSheet from "./ScanDetailSheet";
 import AIAnalysisOverlay from "./AIAnalysisOverlay";
+import { useToast } from "@/hooks/use-toast";
 
-const mockScanResults = [
+export interface AnalyzedItem {
+  brand: string;
+  model: string;
+  category: string;
+  material: string;
+  hsCode: string;
+  hsDescription: string;
+  estimatedPrice: number;
+  confidence: number;
+}
+
+const ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-image`;
+
+async function analyzeImage(file: File): Promise<AnalyzedItem[]> {
+  const base64 = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1]); // strip data:...;base64,
+    };
+    reader.readAsDataURL(file);
+  });
+
+  const resp = await fetch(ANALYZE_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ imageBase64: base64 }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(err.error || `Error ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  return data.items || [];
+}
+
+const fallbackScanResults = [
   { brand: "JACQUEMUS", model: "La Maille Valensole Knit Top", price: 490, inStock: false, confidence: 96, top: 30, left: 45 },
   { brand: "Acne Studios", model: "Leather Jacket", price: 1800, inStock: false, confidence: 87, top: 65, left: 35 },
   { brand: "Bottega Veneta", model: "Puddle Boots", price: 950, inStock: true, confidence: 91, top: 85, left: 50 },
@@ -17,8 +59,10 @@ const ScanOverlay = () => {
   const [scanComplete, setScanComplete] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>([]);
+  const { toast } = useToast();
 
-  const handleUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
@@ -26,15 +70,25 @@ const ScanOverlay = () => {
     setScanComplete(false);
     setShowDetail(false);
     setShowAnalysis(false);
+    setAnalyzedItems([]);
     setIsScanning(true);
 
-    setTimeout(() => {
-      setIsScanning(false);
-      setScanComplete(true);
-      // Show AI analysis overlay after scan
-      setTimeout(() => setShowAnalysis(true), 500);
-    }, 3500);
-  }, []);
+    try {
+      const items = await analyzeImage(file);
+      setAnalyzedItems(items);
+    } catch (err: any) {
+      console.error("AI analysis failed, using fallback:", err);
+      toast({
+        title: "AI Analysis",
+        description: err.message || "Failed to analyze. Using demo data.",
+        variant: "destructive",
+      });
+    }
+
+    setIsScanning(false);
+    setScanComplete(true);
+    setTimeout(() => setShowAnalysis(true), 500);
+  }, [toast]);
 
   const handleAnalysisComplete = useCallback(() => {
     setShowAnalysis(false);
@@ -47,7 +101,21 @@ const ScanOverlay = () => {
     setScanComplete(false);
     setShowAnalysis(false);
     setShowDetail(false);
+    setAnalyzedItems([]);
   };
+
+  // Build scan result dots from AI results or fallback
+  const scanResults = analyzedItems.length > 0
+    ? analyzedItems.slice(0, 3).map((item, i) => ({
+        brand: item.brand,
+        model: item.model,
+        price: item.estimatedPrice,
+        inStock: true,
+        confidence: item.confidence,
+        top: 25 + i * 25,
+        left: 35 + (i % 2) * 20,
+      }))
+    : fallbackScanResults;
 
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center px-4">
@@ -120,8 +188,8 @@ const ScanOverlay = () => {
             {/* Results tags */}
             {scanComplete && (
               <>
-                <ScanResults results={mockScanResults} />
-                {/* Focus tag on the top item (Jennie's knit) */}
+                <ScanResults results={scanResults} />
+                {/* Focus tag on the top item */}
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
@@ -149,7 +217,11 @@ const ScanOverlay = () => {
       </AnimatePresence>
 
       {/* Detail Bottom Sheet */}
-      <ScanDetailSheet open={showDetail} onClose={() => setShowDetail(false)} />
+      <ScanDetailSheet
+        open={showDetail}
+        onClose={() => setShowDetail(false)}
+        analyzedItems={analyzedItems}
+      />
     </div>
   );
 };
