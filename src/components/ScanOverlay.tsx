@@ -1,0 +1,124 @@
+import { useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Upload, ScanLine, X } from "lucide-react";
+import ScanResults from "./ScanResults";
+
+const mockScanResults = [
+  { brand: "Gucci", model: "GG Marmont Bag", price: 2300, inStock: true, confidence: 94, top: 45, left: 30 },
+  { brand: "Acne Studios", model: "Leather Jacket", price: 1800, inStock: false, confidence: 87, top: 25, left: 50 },
+  { brand: "Bottega Veneta", model: "Puddle Boots", price: 950, inStock: true, confidence: 91, top: 78, left: 45 },
+];
+
+const ScanOverlay = () => {
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanComplete, setScanComplete] = useState(false);
+
+  const handleUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setUploadedImage(url);
+    setScanComplete(false);
+    setIsScanning(true);
+
+    // Simulate scan delay
+    setTimeout(() => {
+      setIsScanning(false);
+      setScanComplete(true);
+    }, 3500);
+  }, []);
+
+  const handleReset = () => {
+    setUploadedImage(null);
+    setIsScanning(false);
+    setScanComplete(false);
+  };
+
+  return (
+    <div className="min-h-[60vh] flex flex-col items-center justify-center px-4">
+      <AnimatePresence mode="wait">
+        {!uploadedImage ? (
+          <motion.label
+            key="upload"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="flex flex-col items-center justify-center w-full max-w-md aspect-[3/4] rounded-xl border-2 border-dashed border-border hover:border-muted-foreground/50 transition-colors cursor-pointer bg-card/50"
+          >
+            <Upload className="w-8 h-8 text-muted-foreground mb-3" />
+            <p className="text-sm font-display font-semibold mb-1">
+              Upload a Look
+            </p>
+            <p className="text-xs text-muted-foreground text-center max-w-[200px]">
+              Drop an image or tap to scan celebrity outfits with AI
+            </p>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleUpload}
+            />
+          </motion.label>
+        ) : (
+          <motion.div
+            key="scanning"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="relative w-full max-w-md rounded-xl overflow-hidden"
+          >
+            {/* Reset button */}
+            <button
+              onClick={handleReset}
+              className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center hover:bg-background transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Image */}
+            <img
+              src={uploadedImage}
+              alt="Uploaded look"
+              className="w-full object-cover rounded-xl"
+            />
+
+            {/* Scanning overlay */}
+            {isScanning && (
+              <div className="absolute inset-0 rounded-xl">
+                {/* Dark overlay */}
+                <div className="absolute inset-0 bg-background/40 animate-scan-pulse" />
+
+                {/* Scan line */}
+                <div className="absolute left-0 right-0 h-[2px] bg-accent shadow-[0_0_15px_hsl(var(--accent)),0_0_30px_hsl(var(--accent))] animate-scan-line z-10" />
+
+                {/* Corner brackets */}
+                <div className="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-accent animate-scan-corner" />
+                <div className="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-accent animate-scan-corner" />
+                <div className="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-accent animate-scan-corner" />
+                <div className="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-accent animate-scan-corner" />
+
+                {/* Center icon */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <ScanLine className="w-6 h-6 text-accent animate-pulse" />
+                    <span className="text-xs font-display font-semibold text-accent tracking-widest uppercase">
+                      Analyzing Look...
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Results tags */}
+            {scanComplete && (
+              <ScanResults results={mockScanResults} />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default ScanOverlay;
