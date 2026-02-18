@@ -9,6 +9,11 @@ const PaymentSuccess = () => {
   const sessionId = searchParams.get("session_id");
   const [showConfetti, setShowConfetti] = useState(true);
 
+  // Force onboarded state so onboarding never appears after payment redirect
+  useEffect(() => {
+    localStorage.setItem("looktracker_onboarded", "true");
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => setShowConfetti(false), 3000);
     return () => clearTimeout(timer);

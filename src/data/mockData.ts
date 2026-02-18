@@ -1,9 +1,9 @@
-import kceleb1 from "@/assets/kceleb-1.jpg";
-import kceleb2 from "@/assets/kceleb-2.jpg";
-import kceleb3 from "@/assets/kceleb-3.jpg";
-import kceleb4 from "@/assets/kceleb-4.jpg";
-import kceleb5 from "@/assets/kceleb-5.jpg";
-import kceleb6 from "@/assets/kceleb-6.jpg";
+import celeb1 from "@/assets/celeb-1.jpg";
+import celeb2 from "@/assets/celeb-2.jpg";
+import celeb3 from "@/assets/celeb-3.jpg";
+import celeb4 from "@/assets/celeb-4.jpg";
+import celeb5 from "@/assets/celeb-5.jpg";
+import celeb6 from "@/assets/celeb-6.jpg";
 
 export type SituationTag = "AIRPORT" | "VLOG" | "STAGE" | "DRAMA";
 
@@ -32,7 +32,7 @@ export interface LookItem {
 export const mockLooks: CelebLook[] = [
   {
     id: "1",
-    image: kceleb1,
+    image: celeb1,
     celeb: "Wonyoung",
     event: "Incheon Airport Departure",
     situation: "AIRPORT",
@@ -46,7 +46,7 @@ export const mockLooks: CelebLook[] = [
   },
   {
     id: "2",
-    image: kceleb2,
+    image: celeb2,
     celeb: "Jennie",
     event: "Airport Fashion · Chanel Look",
     situation: "AIRPORT",
@@ -59,7 +59,7 @@ export const mockLooks: CelebLook[] = [
   },
   {
     id: "3",
-    image: kceleb3,
+    image: celeb3,
     celeb: "Rosé",
     event: "Incheon Airport Casual",
     situation: "AIRPORT",
@@ -73,7 +73,7 @@ export const mockLooks: CelebLook[] = [
   },
   {
     id: "4",
-    image: kceleb4,
+    image: celeb4,
     celeb: "Park Seo-joon",
     event: "Airport Off-Duty Style",
     situation: "AIRPORT",
@@ -86,7 +86,7 @@ export const mockLooks: CelebLook[] = [
   },
   {
     id: "5",
-    image: kceleb5,
+    image: celeb5,
     celeb: "V (Taehyung)",
     event: "Summer Street Style",
     situation: "VLOG",
@@ -99,7 +99,7 @@ export const mockLooks: CelebLook[] = [
   },
   {
     id: "6",
-    image: kceleb6,
+    image: celeb6,
     celeb: "Dex",
     event: "Airport All-Black Techwear",
     situation: "AIRPORT",
