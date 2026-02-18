@@ -149,11 +149,11 @@ export const useLocale = () => {
 export const LocaleProvider = ({ children }: { children: ReactNode }) => {
   const [country, setCountry] = useState<Country>(countries[0]); // default KR
   const [lang, setLang] = useState("en");
-  const [onboarded, setOnboarded] = useState(() => localStorage.getItem("looktracker_onboarded") === "true");
+  const [onboarded, setOnboarded] = useState(() => sessionStorage.getItem("looktracker_onboarded") === "true");
 
   const handleSetOnboarded = useCallback((v: boolean) => {
     setOnboarded(v);
-    if (v) localStorage.setItem("looktracker_onboarded", "true");
+    if (v) sessionStorage.setItem("looktracker_onboarded", "true");
   }, []);
 
   const t = useCallback(
