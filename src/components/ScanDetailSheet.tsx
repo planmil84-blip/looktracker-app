@@ -186,16 +186,16 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] mb-1">
-                      AI Identified · {analyzedItems.length > 0 ? `${analyzedItems[0].confidence}%` : "96%"} Match
+                     AI Identified · {analyzedItems.length > 0 ? `${analyzedItems[0].confidence}%` : "—"} Match
                     </p>
                     <h2 className="font-display text-xl font-bold tracking-tight">
-                      {analyzedItems.length > 0 ? analyzedItems[0].brand.toUpperCase() : "JACQUEMUS"}
+                       {analyzedItems.length > 0 ? analyzedItems[0].brand.toUpperCase() : "Analyzing..."}
                     </h2>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      {analyzedItems.length > 0 ? analyzedItems[0].model : "La Maille Valensole Knit Top"}
+                      {analyzedItems.length > 0 ? analyzedItems[0].model : "—"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Color: {analyzedItems.length > 0 ? (analyzedItems[0] as any).color || "N/A" : "Sage Green"}
+                      Color: {analyzedItems.length > 0 ? (analyzedItems[0] as any).color || "N/A" : "—"}
                     </p>
                     {analyzedItems.length > 0 && analyzedItems[0].material && (
                       <p className="text-xs text-muted-foreground mt-0.5">
@@ -214,16 +214,16 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                   </div>
                 </div>
                 <div className="mt-3 flex items-center gap-2">
-                  <span className="text-lg font-display font-bold">
-                    {formatPrice(analyzedItems.length > 0 ? analyzedItems[0].estimatedPrice : 490)}
+                   <span className="text-lg font-display font-bold">
+                    {analyzedItems.length > 0 ? formatPrice(analyzedItems[0].estimatedPrice) : "—"}
                   </span>
                   <span className="text-xs text-muted-foreground">{t("retailPrice")}</span>
                 </div>
 
                 {/* HS Code classification */}
                 <div className="mt-2 px-2.5 py-1.5 bg-secondary/60 rounded-lg border border-border inline-flex items-center gap-2">
-                  <span className="text-[9px] font-mono text-muted-foreground">
-                    HS Code: {analyzedItems.length > 0 ? analyzedItems[0].hsCode : "6110.30"} · {analyzedItems.length > 0 ? analyzedItems[0].hsDescription : "Knitted garment"} · {country.flag} Duty {Math.round(country.dutyRate * 100)}%
+                   <span className="text-[9px] font-mono text-muted-foreground">
+                    HS Code: {analyzedItems.length > 0 ? analyzedItems[0].hsCode : "—"} · {analyzedItems.length > 0 ? analyzedItems[0].hsDescription : "—"} · {country.flag} Duty {Math.round(country.dutyRate * 100)}%
                   </span>
                 </div>
 
