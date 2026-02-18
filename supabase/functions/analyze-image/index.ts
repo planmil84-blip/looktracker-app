@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64 } = await req.json();
+    const { imageBase64, context } = await req.json();
 
     if (!imageBase64) {
       return new Response(
@@ -26,6 +26,10 @@ serve(async (req) => {
       throw new Error("OPENAI_API_KEY is not configured");
     }
 
+    const userText = context
+      ? `Identify all fashion items in this image. The user provided this context: "${context}". Use this hint to improve accuracy. Return ONLY a valid JSON array.`
+      : `Identify all fashion items in this image. Return ONLY a valid JSON array.`;
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -37,41 +41,39 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a world-class fashion identification expert specializing in luxury and K-fashion brands. Given an image, meticulously analyze every visible clothing item, accessory, bag, and shoe worn by each person.
+            content: `You are a world-class fashion archive specialist who tracks celebrity wardrobes globally in real-time. You combine the uploaded image with any user-provided text context to pinpoint the exact products.
 
-For EACH item, return:
-- brand: The exact brand name (e.g. "Jacquemus", "Miu Miu", "Nike"). If uncertain, provide your best guess with reasoning.
-- model: The specific product/model name (e.g. "La Maille Valensole Knit Top", "Air Force 1 '07"). Be as precise as possible.
+For EACH visible clothing item, accessory, bag, and shoe, return a JSON object with these fields:
+- brand: Exact brand name (e.g. "Jacquemus", "Miu Miu")
+- product_name: The precise model/product name (e.g. "La Maille Valensole Knit Top")
+- collection: Season and collection info (e.g. "24FW", "Resort 2025", "SS24"). Use "N/A" if unknown.
 - category: One of "Tops", "Outerwear", "Bottoms", "Dresses", "Shoes", "Bags", "Accessories", "Jewelry", "Eyewear", "Headwear"
-- color: The exact color name (e.g. "Sage Green", "Ivory", "Black")
-- material: Primary material composition (e.g. "70% Viscose, 30% Polyamide", "100% Leather")
-- hsCode: The 6-digit HS tariff code for customs classification (e.g. "6110.30" for knitted tops, "6402.99" for rubber footwear)
-- hsDescription: A short description of the HS classification (e.g. "Knitted garments of man-made fibres")
-- estimatedPrice: Estimated retail price in USD (integer)
-- confidence: Your confidence percentage 0-100
+- color: Exact color name (e.g. "Sage Green")
+- material: Primary material composition (e.g. "70% Viscose, 30% Polyamide")
+- hsCode: 6-digit HS tariff code (e.g. "6110.30")
+- hsDescription: Short HS classification description
+- original_price: Estimated retail price in USD (integer)
+- official_status: Availability status — one of "In Stock", "Sold Out", "Limited Edition", "Discontinued"
+- resale_market: Brief resale market note (e.g. "Active listings on Vestiaire & Grailed, avg $280-350")
+- confidence: Confidence percentage 0-100
 
-Be thorough — identify ALL visible items, not just the most prominent one. If a brand logo or label is visible, use it. If not, use design cues, silhouette, and styling context.
+Be thorough — identify ALL visible items. If a brand logo or label is visible, use it. If not, use design cues, silhouette, and styling context.
 
 Return ONLY a valid JSON array. No markdown, no explanation, no code fences.`,
           },
           {
             role: "user",
             content: [
-              {
-                type: "text",
-                text: "Identify all fashion items in this image. Analyze the brand, model, color, material, and customs classification for each item. Return JSON array.",
-              },
+              { type: "text", text: userText },
               {
                 type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${imageBase64}`,
-                },
+                image_url: { url: `data:image/jpeg;base64,${imageBase64}` },
               },
             ],
           },
         ],
         temperature: 0.1,
-        max_tokens: 3000,
+        max_tokens: 4000,
       }),
     });
 
