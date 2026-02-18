@@ -5,7 +5,7 @@ import { X, CreditCard, Shield, Lock } from "lucide-react";
 interface CheckoutSheetProps {
   open: boolean;
   onClose: () => void;
-  item: { brand: string; model: string; price: number } | null;
+  item: { brand: string; model: string; price: number; imageUrl?: string } | null;
 }
 
 const CheckoutSheet = ({ open, onClose, item }: CheckoutSheetProps) => {
@@ -48,16 +48,28 @@ const CheckoutSheet = ({ open, onClose, item }: CheckoutSheetProps) => {
             </button>
 
             <div className="px-5 pb-8">
-              {/* Order summary */}
               <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold mb-3">
                 Quick Buy
               </p>
-              <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl border border-border mb-5">
-                <div>
-                  <p className="text-sm font-display font-bold">{item.brand}</p>
-                  <p className="text-xs text-muted-foreground">{item.model}</p>
+
+              {/* Order summary with real product image */}
+              <div className="flex items-center gap-3 p-4 bg-secondary/50 rounded-xl border border-border mb-5">
+                {item.imageUrl ? (
+                  <img
+                    src={item.imageUrl}
+                    alt={`${item.brand} ${item.model}`}
+                    className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                    <CreditCard className="w-6 h-6 text-muted-foreground/30" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-display font-bold truncate">{item.brand}</p>
+                  <p className="text-xs text-muted-foreground truncate">{item.model}</p>
                 </div>
-                <span className="text-lg font-display font-bold">
+                <span className="text-lg font-display font-bold flex-shrink-0">
                   ${item.price.toLocaleString()}
                 </span>
               </div>

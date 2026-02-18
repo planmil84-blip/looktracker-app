@@ -198,7 +198,7 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
   const [marketTab, setMarketTab] = useState<MarketTab>("official");
   const [bridgeTarget, setBridgeTarget] = useState<string | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutItem, setCheckoutItem] = useState<{ brand: string; model: string; price: number } | null>(null);
+  const [checkoutItem, setCheckoutItem] = useState<{ brand: string; model: string; price: number; imageUrl?: string } | null>(null);
   const [saved, setSaved] = useState(false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
@@ -219,7 +219,7 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
   };
 
   const handleBuy = (brand: string, model: string, price: number) => {
-    setCheckoutItem({ brand, model, price });
+    setCheckoutItem({ brand, model, price, imageUrl: selectedItem?.imageUrl });
     setShowCheckout(true);
   };
 
@@ -305,18 +305,36 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                     ))}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 gap-2">
-                    {analyzedItems.slice(0, 3).map((item, i) => (
-                      <ItemCard
-                        key={`${item.brand}-${i}`}
-                        item={item}
-                        index={i}
-                        isSelected={selectedIndex === i}
-                        onClick={() => setSelectedIndex(i)}
-                        formatPrice={formatPrice}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-3 gap-2">
+                      {analyzedItems.slice(0, 3).map((item, i) => (
+                        <ItemCard
+                          key={`${item.brand}-${i}`}
+                          item={item}
+                          index={i}
+                          isSelected={selectedIndex === i}
+                          onClick={() => setSelectedIndex(i)}
+                          formatPrice={formatPrice}
+                        />
+                      ))}
+                    </div>
+                    {analyzedItems.some((it) => it.imageLoading) && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-accent/30 bg-accent/5"
+                      >
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                          className="w-3.5 h-3.5 border-2 border-accent/30 border-t-accent rounded-full flex-shrink-0"
+                        />
+                        <span className="text-[10px] font-display font-bold text-accent">
+                          브랜드 공식 파트너사에서 실제 상품 정보를 가져오는 중...
+                        </span>
+                      </motion.div>
+                    )}
+                  </>
                 )}
 
                 {/* Save banner */}
@@ -413,22 +431,42 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                       <AnimatePresence mode="wait">
                         {marketTab === "official" && (
                           <motion.div key="official" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-2">
-                            {officialPartners.map((m) => (
-                              <MarketRow
-                                key={m.name}
-                                name={m.name}
-                                url={m.url}
-                                searchQuery={searchQuery}
-                                basePrice={basePrice}
-                                baseShipping={m.baseShipping}
-                                formatPrice={formatPrice}
-                                calcDuty={calcDuty}
-                                calcShipping={calcShipping}
-                                onBuy={handleBuy}
-                                onBridge={handleBridge}
-                                bridgeTarget={bridgeTarget}
-                              />
-                            ))}
+                            {/* Real sellers from Google Shopping */}
+                            {selectedItem?.sellers && selectedItem.sellers.length > 0 ? (
+                              selectedItem.sellers.map((seller) => (
+                                <MarketRow
+                                  key={seller.name}
+                                  name={seller.name}
+                                  url={seller.link ? seller.link.split("?")[0] + "?q=" : "https://www.google.com/search?q="}
+                                  searchQuery={seller.link ? "" : searchQuery}
+                                  basePrice={seller.price || basePrice}
+                                  baseShipping={15}
+                                  formatPrice={formatPrice}
+                                  calcDuty={calcDuty}
+                                  calcShipping={calcShipping}
+                                  onBuy={handleBuy}
+                                  onBridge={(url) => handleBridge(seller.link || url, seller.name)}
+                                  bridgeTarget={bridgeTarget}
+                                />
+                              ))
+                            ) : (
+                              officialPartners.map((m) => (
+                                <MarketRow
+                                  key={m.name}
+                                  name={m.name}
+                                  url={m.url}
+                                  searchQuery={searchQuery}
+                                  basePrice={basePrice}
+                                  baseShipping={m.baseShipping}
+                                  formatPrice={formatPrice}
+                                  calcDuty={calcDuty}
+                                  calcShipping={calcShipping}
+                                  onBuy={handleBuy}
+                                  onBridge={handleBridge}
+                                  bridgeTarget={bridgeTarget}
+                                />
+                              ))
+                            )}
                           </motion.div>
                         )}
                         {marketTab === "resale" && (
