@@ -11,8 +11,8 @@ interface CelebCardProps {
 const tagColors: Record<SituationTag, string> = {
   AIRPORT: "bg-accent text-accent-foreground",
   VLOG: "bg-primary text-primary-foreground",
-  STAGE: "bg-checkout text-white",
-  DRAMA: "bg-gold text-background",
+  STREET: "bg-checkout text-white",
+  "FASHION SHOW": "bg-gold text-background",
 };
 
 const CelebCard = ({ look, index, onClick }: CelebCardProps) => {

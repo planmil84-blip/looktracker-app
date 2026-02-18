@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, ExternalLink, ShoppingBag, Heart } from "lucide-react";
+import { X, ScanLine, Heart } from "lucide-react";
 import type { CelebLook } from "@/data/mockData";
 
 interface LookDetailSheetProps {
   look: CelebLook | null;
   onClose: () => void;
+  onScanLook?: (look: CelebLook) => void;
 }
 
-const LookDetailSheet = ({ look, onClose }: LookDetailSheetProps) => {
+const LookDetailSheet = ({ look, onClose, onScanLook }: LookDetailSheetProps) => {
   const [liked, setLiked] = useState(false);
 
   if (!look) return null;
@@ -64,7 +65,7 @@ const LookDetailSheet = ({ look, onClose }: LookDetailSheetProps) => {
             </div>
 
             {/* Items list */}
-            <div className="px-5 pb-8 space-y-3">
+            <div className="px-5 pb-4 space-y-3">
               <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold mb-2">
                 Identified Items ({look.items.length})
               </p>
@@ -101,35 +102,22 @@ const LookDetailSheet = ({ look, onClose }: LookDetailSheetProps) => {
                       <span className="text-[10px] text-muted-foreground">via {item.retailer}</span>
                     </div>
                   </div>
-
-                  <button
-                    className={`ml-3 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all ${
-                      item.inStock
-                        ? "bg-foreground text-background hover:opacity-90"
-                        : "bg-accent text-accent-foreground hover:opacity-90"
-                    }`}
-                    onClick={() => {
-                      if (!item.inStock) {
-                        // Redirect to resale search
-                        window.open(`https://www.ebay.com/sch/${encodeURIComponent(item.brand + " " + item.model)}`, "_blank");
-                      }
-                      // In-stock Buy → handled by parent via checkout flow
-                    }}
-                  >
-                    {item.inStock ? (
-                      <>
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                        Buy
-                      </>
-                    ) : (
-                      <>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        Find
-                      </>
-                    )}
-                  </button>
                 </motion.div>
               ))}
+            </div>
+
+            {/* Full-width Scan Analysis CTA */}
+            <div className="px-5 pb-8">
+              <button
+                onClick={() => {
+                  onClose();
+                  onScanLook?.(look);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full bg-foreground text-background text-sm font-display font-bold tracking-wide hover:opacity-90 transition-opacity"
+              >
+                <ScanLine className="w-4 h-4" />
+                Scan & Analyze Full Look
+              </button>
             </div>
           </motion.div>
         </>

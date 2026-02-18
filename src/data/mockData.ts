@@ -5,7 +5,7 @@ import celeb4 from "@/assets/celeb-4.jpg";
 import celeb5 from "@/assets/celeb-5.jpg";
 import celeb6 from "@/assets/celeb-6.jpg";
 
-export type SituationTag = "AIRPORT" | "VLOG" | "STAGE" | "DRAMA";
+export type SituationTag = "AIRPORT" | "VLOG" | "STREET" | "FASHION SHOW";
 
 export interface CelebLook {
   id: string;
@@ -48,8 +48,8 @@ export const mockLooks: CelebLook[] = [
     id: "2",
     image: celeb2,
     celeb: "Jennie",
-    event: "Airport Fashion · Chanel Look",
-    situation: "AIRPORT",
+    event: "Street Fashion · Chanel Look",
+    situation: "STREET",
     likes: 34200,
     date: "3h ago",
     items: [
@@ -61,8 +61,8 @@ export const mockLooks: CelebLook[] = [
     id: "3",
     image: celeb3,
     celeb: "Rosé",
-    event: "Incheon Airport Casual",
-    situation: "AIRPORT",
+    event: "Met Gala After-Party",
+    situation: "FASHION SHOW",
     likes: 28900,
     date: "5h ago",
     items: [
@@ -75,8 +75,8 @@ export const mockLooks: CelebLook[] = [
     id: "4",
     image: celeb4,
     celeb: "Park Seo-joon",
-    event: "Airport Off-Duty Style",
-    situation: "AIRPORT",
+    event: "Off-Duty Street Style",
+    situation: "STREET",
     likes: 19400,
     date: "6h ago",
     items: [
@@ -101,8 +101,8 @@ export const mockLooks: CelebLook[] = [
     id: "6",
     image: celeb6,
     celeb: "Dex",
-    event: "Airport All-Black Techwear",
-    situation: "AIRPORT",
+    event: "Seoul Fashion Week Techwear",
+    situation: "FASHION SHOW",
     likes: 15800,
     date: "1d ago",
     items: [
