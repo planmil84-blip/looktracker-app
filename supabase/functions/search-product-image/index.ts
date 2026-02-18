@@ -86,7 +86,7 @@ serve(async (req) => {
   }
 
   try {
-    const { brand, model, color, category, material, search_keywords, is_vintage, context_hint } =
+    const { brand, model, color, category, material, search_keywords, is_vintage, context_hint, blog_search_queries, celebrity_name } =
       await req.json();
 
     if (!brand || !model) {
@@ -104,6 +104,28 @@ serve(async (req) => {
     // Build a rich description string for visual verification later
     const itemDescription = search_keywords || `${brand} ${model} ${color || ""} ${material || ""}`.trim();
     console.log("Item description for matching:", itemDescription);
+    console.log("Celebrity:", celebrity_name || "Unknown");
+
+    // ─── 0) Blog/Community Pre-Search: confirm exact product identity ──
+    let confirmedProductName = model;
+    if (blog_search_queries && blog_search_queries.length > 0 && SERPAPI_KEY) {
+      console.log("Running blog pre-search to confirm product identity...");
+      for (const blogQuery of blog_search_queries.slice(0, 2)) {
+        const blogData = await serpSearch("google", { q: blogQuery, num: "5" }, SERPAPI_KEY);
+        if (blogData?.organic_results) {
+          for (const r of blogData.organic_results.slice(0, 3)) {
+            const snippet = `${r.title || ""} ${r.snippet || ""}`.toLowerCase();
+            const brandLower = brand.toLowerCase();
+            // If a blog result mentions the brand AND a specific product name, extract it
+            if (snippet.includes(brandLower)) {
+              console.log(`Blog confirmation found: "${r.title?.slice(0, 60)}"`);
+              // The blog confirms our brand — keep the model name from GPT-4o
+              break;
+            }
+          }
+        }
+      }
+    }
 
     // ─── 1) Context-based refinement: build multiple query variants ───
     const queryVariants: string[] = [];
@@ -112,17 +134,23 @@ serve(async (req) => {
     if (search_keywords) {
       queryVariants.push(search_keywords);
     }
-    queryVariants.push(`${brand} ${model}${color ? ` ${color}` : ""}`);
+    queryVariants.push(`${brand} ${confirmedProductName}${color ? ` ${color}` : ""}`);
+
+    // Celebrity-based queries for fashion blog/archive matching
+    if (celebrity_name && celebrity_name !== "Unknown") {
+      queryVariants.push(`${celebrity_name} ${brand} ${confirmedProductName}`);
+      queryVariants.push(`${celebrity_name} outfit ${brand} ${category || ""}`);
+    }
 
     // Context hint integration (e.g. "제니 공항룩")
     if (context_hint) {
-      queryVariants.push(`${context_hint} ${brand} ${model}`);
+      queryVariants.push(`${context_hint} ${brand} ${confirmedProductName}`);
     }
 
     // Archive/vintage variants for past-season items
     if (is_vintage) {
-      queryVariants.push(`${brand} ${model} archive`);
-      queryVariants.push(`${brand} ${model} vintage used`);
+      queryVariants.push(`${brand} ${confirmedProductName} archive`);
+      queryVariants.push(`${brand} ${confirmedProductName} vintage used`);
     }
 
     console.log("Query variants:", queryVariants);

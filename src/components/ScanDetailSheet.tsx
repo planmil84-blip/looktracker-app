@@ -110,6 +110,15 @@ const ItemCard = ({
         )}
       </div>
 
+      {/* Verified Celeb Choice label */}
+      {item.celebrity_name && item.celebrity_name !== "Unknown" && item.match_label === "Exact Match" && (
+        <div className="w-full px-1 mb-1">
+          <span className="text-[7px] font-display font-bold text-accent leading-tight block text-center truncate">
+            ✦ Verified: {item.celebrity_name} wore this
+          </span>
+        </div>
+      )}
+
       {/* Info */}
       <p className="text-[10px] text-muted-foreground uppercase tracking-wider truncate w-full text-center">
         {item.category || "Item"}
@@ -417,6 +426,22 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-3"
                   >
+                    {/* Verified Celeb Choice banner */}
+                    {selectedItem.celebrity_name && selectedItem.celebrity_name !== "Unknown" && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-accent/30 bg-accent/5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+                        <span className="text-[10px] font-display font-bold text-accent">
+                          {selectedItem.match_label === "Exact Match"
+                            ? `Verified Celeb Choice: ${selectedItem.celebrity_name} wore this [${selectedItem.brand}]`
+                            : `${selectedItem.celebrity_name}'s Style · ${selectedItem.match_label || "Similar Style"}`}
+                        </span>
+                      </motion.div>
+                    )}
+
                     {/* Selected item summary */}
                     <div className="flex items-center gap-2 px-1">
                       <p className="text-xs font-display font-bold flex-1 truncate">

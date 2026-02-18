@@ -18,6 +18,7 @@ export interface AnalyzedItem {
   brand: string;
   product_name: string;
   search_keywords?: string;
+  blog_search_queries?: string[];
   collection: string;
   category: string;
   color: string;
@@ -30,6 +31,7 @@ export interface AnalyzedItem {
   confidence: number;
   is_vintage?: boolean;
   match_label?: string;
+  celebrity_name?: string;
   /** @deprecated kept for backward compat */
   model?: string;
   estimatedPrice?: number;
@@ -65,8 +67,10 @@ async function analyzeImage(file: File, context: string): Promise<AnalyzedItem[]
   }
 
   const data = await resp.json();
+  const celebrity_name = data.celebrity_name || "Unknown";
   return (data.items || []).map((item: any) => ({
     ...item,
+    celebrity_name,
     // backward compat aliases
     model: item.product_name || item.model,
     estimatedPrice: item.original_price || item.estimatedPrice,
@@ -102,6 +106,8 @@ const ScanOverlay = () => {
             search_keywords: item.search_keywords || "",
             is_vintage: item.is_vintage || false,
             context_hint: hint || "",
+            blog_search_queries: item.blog_search_queries || [],
+            celebrity_name: item.celebrity_name || "",
           }),
         });
         if (resp.ok) {
