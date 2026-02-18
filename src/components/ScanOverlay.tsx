@@ -10,6 +10,7 @@ export interface AnalyzedItem {
   brand: string;
   model: string;
   category: string;
+  color: string;
   material: string;
   hsCode: string;
   hsDescription: string;
@@ -79,9 +80,8 @@ const ScanOverlay = () => {
     } catch (err: any) {
       console.error("AI analysis failed, using fallback:", err);
       toast({
-        title: "AI Analysis",
-        description: err.message || "Failed to analyze. Using demo data.",
-        variant: "destructive",
+        title: "유사한 스타일을 찾는 중...",
+        description: "AI 분석에 실패했습니다. 유사한 스타일로 대체합니다.",
       });
     }
 

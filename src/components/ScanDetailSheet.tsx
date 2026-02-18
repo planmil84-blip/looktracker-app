@@ -186,11 +186,22 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] mb-1">
-                      AI Identified · 96% Match
+                      AI Identified · {analyzedItems.length > 0 ? `${analyzedItems[0].confidence}%` : "96%"} Match
                     </p>
-                    <h2 className="font-display text-xl font-bold tracking-tight">JACQUEMUS</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">La Maille Valensole Knit Top</p>
-                    <p className="text-xs text-muted-foreground mt-1">Color: Sage Green</p>
+                    <h2 className="font-display text-xl font-bold tracking-tight">
+                      {analyzedItems.length > 0 ? analyzedItems[0].brand.toUpperCase() : "JACQUEMUS"}
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {analyzedItems.length > 0 ? analyzedItems[0].model : "La Maille Valensole Knit Top"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Color: {analyzedItems.length > 0 ? (analyzedItems[0] as any).color || "N/A" : "Sage Green"}
+                    </p>
+                    {analyzedItems.length > 0 && analyzedItems[0].material && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Material: {analyzedItems[0].material}
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <span className="bg-accent/15 text-accent text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-sm border border-accent/30">
@@ -203,16 +214,49 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                   </div>
                 </div>
                 <div className="mt-3 flex items-center gap-2">
-                  <span className="text-lg font-display font-bold">{formatPrice(490)}</span>
+                  <span className="text-lg font-display font-bold">
+                    {formatPrice(analyzedItems.length > 0 ? analyzedItems[0].estimatedPrice : 490)}
+                  </span>
                   <span className="text-xs text-muted-foreground">{t("retailPrice")}</span>
                 </div>
 
                 {/* HS Code classification */}
                 <div className="mt-2 px-2.5 py-1.5 bg-secondary/60 rounded-lg border border-border inline-flex items-center gap-2">
                   <span className="text-[9px] font-mono text-muted-foreground">
-                    HS Code: 6110.30 · Knitted garment · {country.flag} Duty {Math.round(country.dutyRate * 100)}%
+                    HS Code: {analyzedItems.length > 0 ? analyzedItems[0].hsCode : "6110.30"} · {analyzedItems.length > 0 ? analyzedItems[0].hsDescription : "Knitted garment"} · {country.flag} Duty {Math.round(country.dutyRate * 100)}%
                   </span>
                 </div>
+
+                {/* Additional analyzed items */}
+                {analyzedItems.length > 1 && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">
+                      Other Items Detected
+                    </p>
+                    {analyzedItems.slice(1).map((item, i) => (
+                      <div key={i} className="p-2.5 bg-secondary/50 rounded-lg border border-border">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-display font-bold">{item.brand}</p>
+                            <p className="text-[11px] text-muted-foreground">{item.model}</p>
+                            {(item as any).color && (
+                              <p className="text-[10px] text-muted-foreground">Color: {(item as any).color}</p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-display font-bold">{formatPrice(item.estimatedPrice)}</p>
+                            <p className="text-[9px] text-muted-foreground">{item.confidence}% match</p>
+                          </div>
+                        </div>
+                        <div className="mt-1.5 px-2 py-1 bg-secondary/60 rounded border border-border inline-flex">
+                          <span className="text-[8px] font-mono text-muted-foreground">
+                            HS {item.hsCode} · {item.hsDescription}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Country selector */}
