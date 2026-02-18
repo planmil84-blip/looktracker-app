@@ -96,7 +96,9 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
 
   const fetchImagesForItems = useCallback(async (items: AnalyzedItem[], hint: string) => {
     const SEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-product-image`;
-    items.forEach(async (item, idx) => {
+
+    // Fire ALL requests in parallel with Promise.allSettled
+    const promises = items.map(async (item, idx) => {
       try {
         const resp = await fetch(SEARCH_URL, {
           method: "POST",
@@ -139,6 +141,8 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
         prev.map((it, i) => (i === idx ? { ...it, imageLoading: false, match_label: "No Match" } : it))
       );
     });
+
+    await Promise.allSettled(promises);
   }, []);
 
   // Auto-trigger scan when receiving an image from Trending feed

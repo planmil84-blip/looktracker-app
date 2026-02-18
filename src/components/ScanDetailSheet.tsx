@@ -380,22 +380,39 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                         />
                       ))}
                     </div>
-                    {analyzedItems.some((it) => it.imageLoading) && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-accent/30 bg-accent/5"
-                      >
+                    {analyzedItems.some((it) => it.imageLoading) && (() => {
+                      const total = analyzedItems.length;
+                      const loaded = analyzedItems.filter((it) => !it.imageLoading).length;
+                      const pct = Math.round((loaded / total) * 100);
+                      const celeb = analyzedItems[0]?.celebrity_name;
+                      const celebLabel = celeb && celeb !== "Unknown" ? celeb : "셀럽";
+                      return (
                         <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                          className="w-3.5 h-3.5 border-2 border-accent/30 border-t-accent rounded-full flex-shrink-0"
-                        />
-                        <span className="text-[10px] font-display font-bold text-accent">
-                          브랜드 공식 파트너사에서 실제 상품 정보를 가져오는 중...
-                        </span>
-                      </motion.div>
-                    )}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="px-3 py-2.5 rounded-lg border border-accent/30 bg-accent/5 space-y-1.5"
+                        >
+                          <div className="flex items-center gap-2">
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                              className="w-3.5 h-3.5 border-2 border-accent/30 border-t-accent rounded-full flex-shrink-0"
+                            />
+                            <span className="text-[10px] font-display font-bold text-accent">
+                              AI가 {celebLabel}의 옷장에서 정확한 모델을 찾는 중입니다 ({pct}% 완료)
+                            </span>
+                          </div>
+                          <div className="w-full h-1 rounded-full bg-accent/20 overflow-hidden">
+                            <motion.div
+                              className="h-full bg-accent rounded-full"
+                              initial={{ width: 0 }}
+                              animate={{ width: `${pct}%` }}
+                              transition={{ duration: 0.3 }}
+                            />
+                          </div>
+                        </motion.div>
+                      );
+                    })()}
                   </>
                 )}
 

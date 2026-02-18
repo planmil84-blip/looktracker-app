@@ -22,7 +22,8 @@ async function serpSearch(
   return resp.json();
 }
 
-/** Ask GPT-4o Vision to score how well a candidate image matches the original description */
+/** Ask GPT-4o Vision to score how well a candidate image matches the original description.
+ *  Strict guardrails: pattern direction, logo placement, closure type must all match for MATCH verdict. */
 async function visualVerify(
   candidateImageUrl: string,
   description: string,
@@ -40,19 +41,30 @@ async function visualVerify(
         messages: [
           {
             role: "system",
-            content: `You are a fashion product verification expert. Given a candidate product image and a textual description of the target item, rate how closely the image matches the description.
-Consider: pattern/print details, neckline shape, sleeve length, button placement, silhouette, color, material texture.
+            content: `You are a strict fashion product verification expert. Given a candidate product image and a textual description of the target item, rate how closely the image matches.
+
+STRICT RULES — all must pass for MATCH:
+- Pattern/print direction must match exactly (e.g. diagonal vs horizontal check)
+- Logo position and size must match
+- Closure type (buttons, hooks, zip) must match
+- Neckline shape must match
+- Sleeve length must match
+- Overall silhouette and proportions must match
+- Color tone must be within the same shade family
+
+If ANY of the above differs, the verdict CANNOT be MATCH.
+
 Return ONLY valid JSON: {"score": 0-100, "verdict": "MATCH"|"SIMILAR"|"MISMATCH"}
-- MATCH: 90-100, nearly identical product
-- SIMILAR: 60-89, same brand/category but different details
-- MISMATCH: 0-59, clearly different product`,
+- MATCH: 92-100, nearly identical product with all details matching
+- SIMILAR: 55-91, same brand/category but one or more details differ
+- MISMATCH: 0-54, clearly different product`,
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `Target item description: "${description}"\n\nDoes this product image match the description? Return JSON only.`,
+                text: `Target item description: "${description}"\n\nCompare this product image strictly against the description. Check pattern direction, logo position, closure type, neckline, sleeve length. Return JSON only.`,
               },
               { type: "image_url", image_url: { url: candidateImageUrl } },
             ],
@@ -62,13 +74,13 @@ Return ONLY valid JSON: {"score": 0-100, "verdict": "MATCH"|"SIMILAR"|"MISMATCH"
         max_tokens: 200,
       }),
     });
-    if (!resp.ok) return { score: 50, verdict: "SIMILAR" };
+    if (!resp.ok) return { score: 45, verdict: "SIMILAR" };
     const data = await resp.json();
     const raw = data.choices?.[0]?.message?.content || "";
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     return JSON.parse(cleaned);
   } catch {
-    return { score: 50, verdict: "SIMILAR" };
+    return { score: 45, verdict: "SIMILAR" };
   }
 }
 
@@ -155,33 +167,59 @@ serve(async (req) => {
 
     console.log("Query variants:", queryVariants);
 
-    // ─── 2) Google Shopping search with multiple queries ─────────────
+    // ─── 2) Google Shopping search — parallel queries, filter ads, prioritize major retailers ───
     type Candidate = { title: string; thumbnail: string; price: number; currency: string; source: string; link: string };
     const candidates: Candidate[] = [];
 
-    for (const q of queryVariants.slice(0, 3)) {
-      const data = await serpSearch("google_shopping", { q, num: "5" }, SERPAPI_KEY);
+    // Preferred sources get priority in ranking
+    const preferredSources = new Set(["ssense", "mytheresa", "farfetch", "net-a-porter", "matchesfashion", "nordstrom", "selfridges"]);
+    const isBrandOfficial = (src: string) => src.toLowerCase().includes(brand.toLowerCase());
+
+    // Fire up to 3 queries in parallel for speed
+    const shoppingResults = await Promise.all(
+      queryVariants.slice(0, 3).map((q) =>
+        serpSearch("google_shopping", { q, num: "8" }, SERPAPI_KEY)
+      )
+    );
+
+    for (const data of shoppingResults) {
       if (data?.shopping_results) {
-        for (const r of data.shopping_results.slice(0, 5)) {
-          if (r.thumbnail) {
-            candidates.push({
-              title: r.title || "",
-              thumbnail: r.thumbnail,
-              price: r.extracted_price || 0,
-              currency: r.currency || "USD",
-              source: r.source || r.seller || "Unknown",
-              link: r.link || r.product_link || "",
-            });
-          }
+        for (const r of data.shopping_results) {
+          // Skip ad results
+          if (r.ad || r.is_ad) continue;
+          if (!r.thumbnail) continue;
+          candidates.push({
+            title: r.title || "",
+            thumbnail: r.thumbnail,
+            price: r.extracted_price || 0,
+            currency: r.currency || "USD",
+            source: r.source || r.seller || "Unknown",
+            link: r.link || r.product_link || "",
+          });
         }
       }
-      if (candidates.length >= 5) break;
     }
+
+    // Sort: brand official first, then preferred retailers, then others
+    candidates.sort((a, b) => {
+      const aScore = isBrandOfficial(a.source) ? 2 : preferredSources.has(a.source.toLowerCase()) ? 1 : 0;
+      const bScore = isBrandOfficial(b.source) ? 2 : preferredSources.has(b.source.toLowerCase()) ? 1 : 0;
+      return bScore - aScore;
+    });
+
+    // Deduplicate by source
+    const seen = new Set<string>();
+    const uniqueCandidates = candidates.filter((c) => {
+      const key = c.source.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 8);
 
     // ─── 3) Resale platform search (Grailed, Vestiaire, TheRealReal) ─
     const resaleCandidates: { title: string; thumbnail: string; link: string; platform: string }[] = [];
 
-    if (is_vintage || candidates.length < 3) {
+    if (is_vintage || uniqueCandidates.length < 3) {
       console.log("Searching resale platforms...");
       const resaleQueries = [
         { q: `${brand} ${model} site:grailed.com`, platform: "Grailed" },
@@ -217,9 +255,9 @@ serve(async (req) => {
       match_label: string;
     } | null = null;
 
-    if (OPENAI_KEY && candidates.length > 0) {
-      console.log(`Verifying ${Math.min(candidates.length, 3)} candidates visually...`);
-      const verifyBatch = candidates.slice(0, 3);
+    if (OPENAI_KEY && uniqueCandidates.length > 0) {
+      console.log(`Verifying ${Math.min(uniqueCandidates.length, 5)} candidates visually...`);
+      const verifyBatch = uniqueCandidates.slice(0, 5);
       const verifyResults = await Promise.all(
         verifyBatch.map(async (c) => {
           const v = await visualVerify(c.thumbnail, itemDescription, OPENAI_KEY);
@@ -232,10 +270,10 @@ serve(async (req) => {
       console.log("Verification scores:", verifyResults.map((r) => `${r.title.slice(0, 40)}… → ${r.score} (${r.verdict})`));
 
       const top = verifyResults[0];
-      if (top.score >= 60) {
-        // Build sellers from all candidates
+      // Strict threshold: only label as match if score >= 92
+      if (top.score >= 55) {
         const sellers = verifyResults
-          .filter((r) => r.score >= 50)
+          .filter((r) => r.score >= 45)
           .map((r) => ({
             name: r.source,
             price: r.price,
@@ -251,10 +289,19 @@ serve(async (req) => {
           sellers,
           match_label: verdictToLabel(top.verdict),
         };
+      } else {
+        // No good match — still return best candidate but labeled honestly
+        bestResult = {
+          imageUrl: top.thumbnail,
+          source: "google_shopping",
+          productTitle: top.title || `${brand} ${model}`,
+          sellers: [{ name: top.source, price: top.price, currency: top.currency, link: top.link, thumbnail: top.thumbnail }],
+          match_label: "Similar Style",
+        };
       }
-    } else if (candidates.length > 0) {
+    } else if (uniqueCandidates.length > 0) {
       // No OpenAI key — fall back to text-based matching
-      const best = candidates[0];
+      const best = uniqueCandidates[0];
       const titleLower = best.title.toLowerCase();
       const brandLower = brand.toLowerCase();
       const modelLower = model.toLowerCase();
@@ -269,7 +316,7 @@ serve(async (req) => {
         imageUrl: best.thumbnail,
         source: "google_shopping",
         productTitle: best.title || `${brand} ${model}`,
-        sellers: candidates.slice(0, 5).map((r) => ({
+        sellers: uniqueCandidates.slice(0, 5).map((r) => ({
           name: r.source,
           price: r.price,
           currency: r.currency,
