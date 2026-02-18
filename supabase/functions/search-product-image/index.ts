@@ -21,99 +21,87 @@ serve(async (req) => {
       );
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured");
+    const SERPAPI_KEY = Deno.env.get("SERPAPI_API_KEY");
+    if (!SERPAPI_KEY) {
+      throw new Error("SERPAPI_API_KEY is not configured");
     }
 
-    // Step 1: Try Firecrawl search for real official product images
-    const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-    if (FIRECRAWL_API_KEY) {
-      try {
-        const searchQuery = `${brand} ${model} official product shot white background`;
-        console.log("Firecrawl search:", searchQuery);
+    // Build precise search query for real product images
+    const colorPart = color ? ` ${color}` : "";
+    const searchQuery = `${brand} ${model}${colorPart} official product`;
+    console.log("SerpApi Google Shopping search:", searchQuery);
 
-        const fcResponse = await fetch("https://api.firecrawl.dev/v1/search", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            query: searchQuery,
-            limit: 5,
-            scrapeOptions: { formats: ["links"] },
+    // Step 1: Try Google Shopping for real product data
+    const shoppingUrl = new URL("https://serpapi.com/search.json");
+    shoppingUrl.searchParams.set("engine", "google_shopping");
+    shoppingUrl.searchParams.set("q", searchQuery);
+    shoppingUrl.searchParams.set("num", "5");
+    shoppingUrl.searchParams.set("api_key", SERPAPI_KEY);
+
+    const shoppingResp = await fetch(shoppingUrl.toString());
+
+    if (shoppingResp.ok) {
+      const shoppingData = await shoppingResp.json();
+      const results = shoppingData.shopping_results || [];
+
+      if (results.length > 0) {
+        // Pick the best result (first one is usually most relevant)
+        const best = results[0];
+        const imageUrl = best.thumbnail || null;
+        const sellers = results.slice(0, 5).map((r: any) => ({
+          name: r.source || r.seller || "Unknown",
+          price: r.extracted_price || 0,
+          currency: r.currency || "USD",
+          link: r.link || r.product_link || "",
+          thumbnail: r.thumbnail || "",
+        }));
+
+        console.log("Found real product via Google Shopping:", best.title);
+        return new Response(
+          JSON.stringify({
+            imageUrl,
+            source: "google_shopping",
+            productTitle: best.title || `${brand} ${model}`,
+            sellers,
           }),
-        });
-
-        if (fcResponse.ok) {
-          const fcData = await fcResponse.json();
-          const results = fcData.data || [];
-          for (const result of results) {
-            const links = result.links || [];
-            for (const link of links) {
-              if (/\.(jpg|jpeg|png|webp)(\?|$)/i.test(link)) {
-                try {
-                  const imgCheck = await fetch(link, { method: "HEAD" });
-                  if (imgCheck.ok && (imgCheck.headers.get("content-type") || "").startsWith("image/")) {
-                    console.log("Found product image via Firecrawl:", link);
-                    return new Response(
-                      JSON.stringify({ imageUrl: link, source: "firecrawl" }),
-                      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-                    );
-                  }
-                } catch { /* skip */ }
-              }
-            }
-          }
-        }
-        console.log("Firecrawl: no usable images, falling back to DALL-E");
-      } catch (err) {
-        console.error("Firecrawl failed:", err);
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
-    // Step 2: Generate with DALL-E 3
-    console.log("Generating product image with DALL-E 3:", brand, model);
+    // Step 2: Fallback to Google Images search
+    console.log("No shopping results, trying Google Images...");
+    const imagesUrl = new URL("https://serpapi.com/search.json");
+    imagesUrl.searchParams.set("engine", "google_images");
+    imagesUrl.searchParams.set("q", `${brand} ${model} white background product shot`);
+    imagesUrl.searchParams.set("num", "5");
+    imagesUrl.searchParams.set("api_key", SERPAPI_KEY);
 
-    const colorDesc = color ? `, in ${color} color` : "";
-    const materialDesc = material ? `, made of ${material}` : "";
-    const categoryDesc = category || "fashion item";
+    const imagesResp = await fetch(imagesUrl.toString());
 
-    const prompt = `Professional e-commerce product photo of ${brand} ${model} (${categoryDesc})${colorDesc}${materialDesc}. Clean white background, studio lighting, high-resolution product shot. No text, no watermark, no human model. Photorealistic, editorial quality.`;
+    if (imagesResp.ok) {
+      const imagesData = await imagesResp.json();
+      const imageResults = imagesData.images_results || [];
 
-    const dalleResponse = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt,
-        n: 1,
-        size: "1024x1024",
-        quality: "standard",
-        response_format: "url",
-      }),
-    });
-
-    if (!dalleResponse.ok) {
-      const errorText = await dalleResponse.text();
-      console.error("DALL-E error:", dalleResponse.status, errorText.slice(0, 500));
-      throw new Error(`DALL-E generation failed: ${dalleResponse.status}`);
+      if (imageResults.length > 0) {
+        const bestImage = imageResults[0];
+        console.log("Found product image via Google Images");
+        return new Response(
+          JSON.stringify({
+            imageUrl: bestImage.thumbnail || bestImage.original,
+            source: "google_images",
+            productTitle: bestImage.title || `${brand} ${model}`,
+            sellers: [],
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
-    const dalleData = await dalleResponse.json();
-    const imageUrl = dalleData.data?.[0]?.url;
-
-    if (!imageUrl) {
-      throw new Error("DALL-E returned no image URL");
-    }
-
-    console.log("Generated product image with DALL-E 3");
+    // No results at all
+    console.log("No images found for:", searchQuery);
     return new Response(
-      JSON.stringify({ imageUrl, source: "dalle" }),
+      JSON.stringify({ imageUrl: null, source: "none", sellers: [] }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {

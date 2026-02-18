@@ -6,6 +6,14 @@ import ScanDetailSheet from "./ScanDetailSheet";
 import AIAnalysisOverlay from "./AIAnalysisOverlay";
 import { useToast } from "@/hooks/use-toast";
 
+export interface SellerInfo {
+  name: string;
+  price: number;
+  currency: string;
+  link: string;
+  thumbnail: string;
+}
+
 export interface AnalyzedItem {
   brand: string;
   product_name: string;
@@ -24,6 +32,7 @@ export interface AnalyzedItem {
   estimatedPrice?: number;
   imageUrl?: string;
   imageLoading?: boolean;
+  sellers?: SellerInfo[];
 }
 
 const ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-image`;
@@ -91,9 +100,14 @@ const ScanOverlay = () => {
         });
         if (resp.ok) {
           const data = await resp.json();
-          if (data.imageUrl) {
+          if (data.imageUrl || data.sellers?.length) {
             setAnalyzedItems((prev) =>
-              prev.map((it, i) => (i === idx ? { ...it, imageUrl: data.imageUrl, imageLoading: false } : it))
+              prev.map((it, i) => (i === idx ? {
+                ...it,
+                imageUrl: data.imageUrl || it.imageUrl,
+                imageLoading: false,
+                sellers: data.sellers || [],
+              } : it))
             );
             return;
           }
