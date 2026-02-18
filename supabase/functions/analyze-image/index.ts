@@ -46,6 +46,7 @@ serve(async (req) => {
 For EACH visible clothing item, accessory, bag, and shoe, return a JSON object with these fields:
 - brand: Exact brand name (e.g. "Jacquemus", "Miu Miu")
 - product_name: The precise model/product name (e.g. "La Maille Valensole Knit Top")
+- search_keywords: A highly specific Google Shopping search string combining brand + product name + distinguishing visual details (e.g. "Burberry Vintage Check Cropped Cardigan V-neck button-down beige wool"). Include neckline, closure type, pattern, distinguishing features. This is critical for accurate product matching.
 - collection: Season and collection info (e.g. "24FW", "Resort 2025", "SS24"). Use "N/A" if unknown.
 - category: One of "Tops", "Outerwear", "Bottoms", "Dresses", "Shoes", "Bags", "Accessories", "Jewelry", "Eyewear", "Headwear"
 - color: Exact color name (e.g. "Sage Green")
@@ -56,6 +57,7 @@ For EACH visible clothing item, accessory, bag, and shoe, return a JSON object w
 - official_status: Availability status — one of "In Stock", "Sold Out", "Limited Edition", "Discontinued"
 - resale_market: Brief resale market note (e.g. "Active listings on Vestiaire & Grailed, avg $280-350")
 - confidence: Confidence percentage 0-100
+- is_vintage: Boolean — true if the item appears to be from a past season (2+ seasons old) or is a classic/archival piece
 
 Be thorough — identify ALL visible items. If a brand logo or label is visible, use it. If not, use design cues, silhouette, and styling context.
 

@@ -17,6 +17,7 @@ export interface SellerInfo {
 export interface AnalyzedItem {
   brand: string;
   product_name: string;
+  search_keywords?: string;
   collection: string;
   category: string;
   color: string;
@@ -27,6 +28,8 @@ export interface AnalyzedItem {
   official_status: string;
   resale_market: string;
   confidence: number;
+  is_vintage?: boolean;
+  match_label?: string;
   /** @deprecated kept for backward compat */
   model?: string;
   estimatedPrice?: number;
@@ -96,6 +99,8 @@ const ScanOverlay = () => {
             color: item.color || "",
             category: item.category || "",
             material: item.material || "",
+            search_keywords: item.search_keywords || "",
+            is_vintage: item.is_vintage || false,
           }),
         });
         if (resp.ok) {
@@ -107,6 +112,7 @@ const ScanOverlay = () => {
                 imageUrl: data.imageUrl || it.imageUrl,
                 imageLoading: false,
                 sellers: data.sellers || [],
+                match_label: data.match_label || "Similar Style",
               } : it))
             );
             return;
@@ -116,7 +122,7 @@ const ScanOverlay = () => {
         console.warn(`Image fetch failed for ${item.brand}`, e);
       }
       setAnalyzedItems((prev) =>
-        prev.map((it, i) => (i === idx ? { ...it, imageLoading: false } : it))
+        prev.map((it, i) => (i === idx ? { ...it, imageLoading: false, match_label: "No Match" } : it))
       );
     });
   }, []);
