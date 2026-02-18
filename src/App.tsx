@@ -17,8 +17,8 @@ const App = () => (
       <LocaleProvider>
         <Toaster />
         <Sonner />
-        <OnboardingOverlay />
         <BrowserRouter>
+          <OnboardingOverlay />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
