@@ -1,10 +1,7 @@
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, ExternalLink, ShoppingBag, AlertTriangle, ArrowRight, Star, Sparkles, Bookmark, BookmarkCheck, Globe, ChevronDown, Shield, ArrowDownRight } from "lucide-react";
-import jacquemusKnit from "@/assets/jacquemus-knit.jpg";
-import dupe1 from "@/assets/dupe-1.jpg";
-import dupe2 from "@/assets/dupe-2.jpg";
-import dupe3 from "@/assets/dupe-3.jpg";
+import { X, ExternalLink, ShoppingBag, AlertTriangle, ArrowRight, Star, Sparkles, Bookmark, BookmarkCheck, Globe, ChevronDown, Shield, ArrowDownRight, ImageOff } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import CheckoutSheet from "./CheckoutSheet";
 import { useLocale, countries, type Country } from "@/contexts/LocaleContext";
 import type { AnalyzedItem } from "./ScanOverlay";
@@ -16,7 +13,7 @@ interface ScanDetailSheetProps {
 }
 
 const retailers = [
-  { name: "Jacquemus.com", label: "Official", price: null, status: "Sold Out", landed: null },
+  { name: "Official Store", label: "Official", price: null, status: "Sold Out", landed: null },
   { name: "Farfetch", label: "Edit Shop", price: null, status: "Sold Out", landed: null },
   { name: "SSENSE", label: "Edit Shop", price: null, status: "Sold Out", landed: null },
   { name: "Mytheresa", label: "Edit Shop", price: null, status: "Sold Out", landed: null },
@@ -30,7 +27,7 @@ const preOwned = [
     price: 280,
     condition: "Mint" as Condition,
     location: "United States",
-    url: "https://www.ebay.com/sch/i.html?_nkw=jacquemus+la+maille+valensole",
+    url: "https://www.ebay.com/sch/",
     baseShipping: 25,
   },
   {
@@ -38,7 +35,7 @@ const preOwned = [
     price: 310,
     condition: "Very Good" as Condition,
     location: "France",
-    url: "https://www.vestiairecollective.com/search/?q=jacquemus%20valensole",
+    url: "https://www.vestiairecollective.com/search/",
     baseShipping: 35,
   },
   {
@@ -46,7 +43,7 @@ const preOwned = [
     price: 350,
     condition: "Brand New" as Condition,
     location: "Global",
-    url: "https://stockx.com/search?s=jacquemus%20valensole",
+    url: "https://stockx.com/search",
     baseShipping: 20,
   },
   {
@@ -54,7 +51,7 @@ const preOwned = [
     price: 245,
     condition: "Very Good" as Condition,
     location: "Japan",
-    url: "https://www.grailed.com/shop?query=jacquemus+valensole",
+    url: "https://www.grailed.com/shop",
     baseShipping: 30,
   },
   {
@@ -62,18 +59,60 @@ const preOwned = [
     price: 220,
     condition: "Fair" as Condition,
     location: "Japan",
-    url: "https://www.mercari.com/search/?keyword=jacquemus+valensole",
+    url: "https://www.mercari.com/search/",
     baseShipping: 28,
   },
 ];
 
-const dupes = [
-  { image: dupe1, brand: "Jacquemus", model: "La Maille Neve Ribbed Knit", price: 420, originalPrice: 490, inStock: true, matchScore: 92 },
-  { image: dupe2, brand: "Jacquemus", model: "Le Haut Pralu Crop Top", price: 350, originalPrice: null, inStock: true, matchScore: 87 },
-  { image: dupe3, brand: "Jacquemus", model: "La Maille Rosa Knit", price: 390, originalPrice: null, inStock: false, matchScore: 84 },
-];
-
 const conditionFilters: Condition[] = ["All", "Brand New", "Mint", "Very Good", "Fair"];
+
+/** Skeleton placeholder for product images */
+const ProductImageSkeleton = () => (
+  <div className="w-full h-full flex flex-col items-center justify-center bg-secondary/30 animate-pulse">
+    <div className="w-16 h-16 rounded-full bg-muted/50 mb-3 flex items-center justify-center">
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+        className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full"
+      />
+    </div>
+    <p className="text-[10px] font-display font-semibold text-muted-foreground uppercase tracking-widest">
+      Searching product image...
+    </p>
+  </div>
+);
+
+/** Fallback when no image found */
+const ProductImageFallback = ({ brand, model }: { brand: string; model: string }) => (
+  <div className="w-full h-full flex flex-col items-center justify-center bg-secondary/20">
+    <ImageOff className="w-10 h-10 text-muted-foreground/40 mb-2" />
+    <p className="text-[10px] text-muted-foreground text-center px-4">
+      {brand} {model}
+    </p>
+  </div>
+);
+
+/** Dynamic product image component */
+const ProductImage = ({ item, className = "" }: { item: AnalyzedItem; className?: string }) => {
+  const [imgError, setImgError] = useState(false);
+
+  if (item.imageLoading) {
+    return <ProductImageSkeleton />;
+  }
+
+  if (!item.imageUrl || imgError) {
+    return <ProductImageFallback brand={item.brand} model={item.model} />;
+  }
+
+  return (
+    <img
+      src={item.imageUrl}
+      alt={`${item.brand} ${item.model}`}
+      className={`w-full h-full object-cover ${className}`}
+      onError={() => setImgError(true)}
+    />
+  );
+};
 
 const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetProps) => {
   const { country, setCountry, t, formatPrice, calcDuty, calcShipping } = useLocale();
@@ -113,8 +152,8 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
     }, 1200);
   };
 
-  const handleQuickBuy = (dupe: typeof dupes[0]) => {
-    setCheckoutItem({ brand: dupe.brand, model: dupe.model, price: dupe.price });
+  const handleQuickBuy = (item: AnalyzedItem) => {
+    setCheckoutItem({ brand: item.brand, model: item.model, price: item.estimatedPrice });
     setShowCheckout(true);
   };
 
@@ -130,6 +169,8 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
   const filteredPreOwned = conditionFilter === "All"
     ? preOwned
     : preOwned.filter((item) => item.condition === conditionFilter);
+
+  const primaryItem = analyzedItems.length > 0 ? analyzedItems[0] : null;
 
   return (
     <>
@@ -174,10 +215,14 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                 </button>
               </div>
 
-              {/* Hero */}
+              {/* Hero - Dynamic Image */}
               <div className="px-5 pb-4">
                 <div className="rounded-xl overflow-hidden bg-background aspect-[4/3] flex items-center justify-center">
-                  <img src={jacquemusKnit} alt="Jacquemus La Maille Valensole" className="w-full h-full object-cover" />
+                  {primaryItem ? (
+                    <ProductImage item={primaryItem} />
+                  ) : (
+                    <Skeleton className="w-full h-full" />
+                  )}
                 </div>
               </div>
 
@@ -186,20 +231,20 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] mb-1">
-                     AI Identified · {analyzedItems.length > 0 ? `${analyzedItems[0].confidence}%` : "—"} Match
+                     AI Identified · {primaryItem ? `${primaryItem.confidence}%` : "—"} Match
                     </p>
                     <h2 className="font-display text-xl font-bold tracking-tight">
-                       {analyzedItems.length > 0 ? analyzedItems[0].brand.toUpperCase() : "Analyzing..."}
+                       {primaryItem ? primaryItem.brand.toUpperCase() : "Analyzing..."}
                     </h2>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      {analyzedItems.length > 0 ? analyzedItems[0].model : "—"}
+                      {primaryItem ? primaryItem.model : "—"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Color: {analyzedItems.length > 0 ? (analyzedItems[0] as any).color || "N/A" : "—"}
+                      Color: {primaryItem ? primaryItem.color || "N/A" : "—"}
                     </p>
-                    {analyzedItems.length > 0 && analyzedItems[0].material && (
+                    {primaryItem && primaryItem.material && (
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Material: {analyzedItems[0].material}
+                        Material: {primaryItem.material}
                       </p>
                     )}
                   </div>
@@ -215,7 +260,7 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                 </div>
                 <div className="mt-3 flex items-center gap-2">
                    <span className="text-lg font-display font-bold">
-                    {analyzedItems.length > 0 ? formatPrice(analyzedItems[0].estimatedPrice) : "—"}
+                    {primaryItem ? formatPrice(primaryItem.estimatedPrice) : "—"}
                   </span>
                   <span className="text-xs text-muted-foreground">{t("retailPrice")}</span>
                 </div>
@@ -223,7 +268,7 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                 {/* HS Code classification */}
                 <div className="mt-2 px-2.5 py-1.5 bg-secondary/60 rounded-lg border border-border inline-flex items-center gap-2">
                    <span className="text-[9px] font-mono text-muted-foreground">
-                    HS Code: {analyzedItems.length > 0 ? analyzedItems[0].hsCode : "—"} · {analyzedItems.length > 0 ? analyzedItems[0].hsDescription : "—"} · {country.flag} Duty {Math.round(country.dutyRate * 100)}%
+                    HS Code: {primaryItem ? primaryItem.hsCode : "—"} · {primaryItem ? primaryItem.hsDescription : "—"} · {country.flag} Duty {Math.round(country.dutyRate * 100)}%
                   </span>
                 </div>
 
@@ -235,17 +280,25 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                     </p>
                     {analyzedItems.slice(1).map((item, i) => (
                       <div key={i} className="p-2.5 bg-secondary/50 rounded-lg border border-border">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs font-display font-bold">{item.brand}</p>
-                            <p className="text-[11px] text-muted-foreground">{item.model}</p>
-                            {(item as any).color && (
-                              <p className="text-[10px] text-muted-foreground">Color: {(item as any).color}</p>
-                            )}
+                        <div className="flex items-center gap-3">
+                          {/* Item thumbnail */}
+                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-background flex-shrink-0">
+                            <ProductImage item={item} />
                           </div>
-                          <div className="text-right">
-                            <p className="text-xs font-display font-bold">{formatPrice(item.estimatedPrice)}</p>
-                            <p className="text-[9px] text-muted-foreground">{item.confidence}% match</p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-xs font-display font-bold">{item.brand}</p>
+                                <p className="text-[11px] text-muted-foreground">{item.model}</p>
+                                {item.color && (
+                                  <p className="text-[10px] text-muted-foreground">Color: {item.color}</p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs font-display font-bold">{formatPrice(item.estimatedPrice)}</p>
+                                <p className="text-[9px] text-muted-foreground">{item.confidence}% match</p>
+                              </div>
+                            </div>
                           </div>
                         </div>
                         <div className="mt-1.5 px-2 py-1 bg-secondary/60 rounded border border-border inline-flex">
@@ -525,58 +578,43 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                 </div>
               </div>
 
-              {/* Smart Dupe Recommendation */}
-              <div className="px-5 pb-10">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-3.5 h-3.5 text-gold" />
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">
-                    {t("aiAlternatives")} · Jacquemus SS25
-                  </p>
-                </div>
-                <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-hide">
-                  {dupes.map((dupe, i) => (
-                    <motion.div
-                      key={dupe.model}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.5 + i * 0.1 }}
-                      className="min-w-[160px] flex-shrink-0 bg-secondary/30 rounded-xl overflow-hidden border border-border hover:border-muted-foreground/30 transition-colors"
-                    >
-                      <div className="aspect-square overflow-hidden bg-background relative">
-                        <img src={dupe.image} alt={dupe.model} className="w-full h-full object-cover" />
-                        {!dupe.inStock && (
-                          <span className="absolute top-1.5 right-1.5 bg-accent text-accent-foreground text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-sm">
-                            {t("soldOut")}
+              {/* AI-Matched Similar Items (dynamically from analyzed items) */}
+              {analyzedItems.length > 0 && (
+                <div className="px-5 pb-10">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="w-3.5 h-3.5 text-gold" />
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">
+                      {t("aiAlternatives")} · {primaryItem?.brand || ""}
+                    </p>
+                  </div>
+                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-hide">
+                    {analyzedItems.map((item, i) => (
+                      <motion.div
+                        key={`${item.brand}-${item.model}-${i}`}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.5 + i * 0.1 }}
+                        className="min-w-[160px] flex-shrink-0 bg-secondary/30 rounded-xl overflow-hidden border border-border hover:border-muted-foreground/30 transition-colors"
+                      >
+                        <div className="aspect-square overflow-hidden bg-background relative">
+                          <ProductImage item={item} />
+                          <span className="absolute top-1.5 left-1.5 bg-background/80 backdrop-blur-sm text-[8px] font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-0.5">
+                            <Star className="w-2.5 h-2.5 text-gold fill-gold" />
+                            {item.confidence}%
                           </span>
-                        )}
-                        <span className="absolute top-1.5 left-1.5 bg-background/80 backdrop-blur-sm text-[8px] font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-0.5">
-                          <Star className="w-2.5 h-2.5 text-gold fill-gold" />
-                          {dupe.matchScore}%
-                        </span>
-                      </div>
-                      <div className="p-3">
-                        <p className="text-[11px] font-display font-semibold truncate">{dupe.brand}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{dupe.model}</p>
-                        <div className="flex items-center gap-1.5 mt-1.5">
-                          <span className="text-xs font-display font-bold">{formatPrice(dupe.price)}</span>
-                          {dupe.originalPrice && (
-                            <span className="text-[10px] text-muted-foreground line-through">{formatPrice(dupe.originalPrice)}</span>
-                          )}
                         </div>
-                        {dupe.inStock && (
-                          <button
-                            onClick={() => handleQuickBuy(dupe)}
-                            className="mt-2 w-full py-1.5 rounded-lg bg-checkout text-checkout-foreground text-[10px] font-display font-bold uppercase tracking-wider hover:bg-checkout-hover transition-colors flex items-center justify-center gap-1"
-                          >
-                            <ShoppingBag className="w-3 h-3" />
-                            {t("quickBuy")}
-                          </button>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
+                        <div className="p-3">
+                          <p className="text-[11px] font-display font-semibold truncate">{item.brand}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{item.model}</p>
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <span className="text-xs font-display font-bold">{formatPrice(item.estimatedPrice)}</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Patent Pending Badge */}
               <div className="px-5 pb-8">

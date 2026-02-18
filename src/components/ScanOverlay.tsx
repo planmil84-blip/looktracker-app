@@ -16,16 +16,19 @@ export interface AnalyzedItem {
   hsDescription: string;
   estimatedPrice: number;
   confidence: number;
+  imageUrl?: string;
+  imageLoading?: boolean;
 }
 
 const ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-image`;
+const IMAGE_SEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-product-image`;
 
 async function analyzeImage(file: File): Promise<AnalyzedItem[]> {
   const base64 = await new Promise<string>((resolve) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const result = reader.result as string;
-      resolve(result.split(",")[1]); // strip data:...;base64,
+      resolve(result.split(",")[1]);
     };
     reader.readAsDataURL(file);
   });
@@ -45,9 +48,34 @@ async function analyzeImage(file: File): Promise<AnalyzedItem[]> {
   }
 
   const data = await resp.json();
-  return data.items || [];
+  return (data.items || []).map((item: any) => ({ ...item, imageLoading: true }));
 }
 
+async function searchProductImage(item: AnalyzedItem): Promise<string | null> {
+  try {
+    const resp = await fetch(IMAGE_SEARCH_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({
+        brand: item.brand,
+        model: item.model,
+        color: item.color,
+        category: item.category,
+        material: item.material,
+      }),
+    });
+
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data.imageUrl || null;
+  } catch (err) {
+    console.error("Image search failed for", item.brand, item.model, err);
+    return null;
+  }
+}
 
 const ScanOverlay = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -57,6 +85,21 @@ const ScanOverlay = () => {
   const [showDetail, setShowDetail] = useState(false);
   const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>([]);
   const { toast } = useToast();
+
+  const fetchImagesForItems = useCallback(async (items: AnalyzedItem[]) => {
+    // Search images for all items in parallel
+    const promises = items.map(async (item, idx) => {
+      const imageUrl = await searchProductImage(item);
+      setAnalyzedItems((prev) => {
+        const updated = [...prev];
+        if (updated[idx]) {
+          updated[idx] = { ...updated[idx], imageUrl: imageUrl || undefined, imageLoading: false };
+        }
+        return updated;
+      });
+    });
+    await Promise.allSettled(promises);
+  }, []);
 
   const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -75,6 +118,9 @@ const ScanOverlay = () => {
       setIsScanning(false);
       setScanComplete(true);
       setTimeout(() => setShowAnalysis(true), 500);
+
+      // Start image search in background
+      fetchImagesForItems(items);
     } catch (err: any) {
       console.error("AI analysis failed:", err);
       setIsScanning(false);
@@ -84,7 +130,7 @@ const ScanOverlay = () => {
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, [toast, fetchImagesForItems]);
 
   const handleAnalysisComplete = useCallback(() => {
     setShowAnalysis(false);
@@ -100,7 +146,7 @@ const ScanOverlay = () => {
     setAnalyzedItems([]);
   };
 
-  // Build scan result dots from AI results only (no fallback)
+  // Build scan result dots from AI results only
   const scanResults = analyzedItems.slice(0, 3).map((item, i) => ({
     brand: item.brand,
     model: item.model,
@@ -123,18 +169,11 @@ const ScanOverlay = () => {
             className="flex flex-col items-center justify-center w-full max-w-md aspect-[3/4] rounded-xl border-2 border-dashed border-border hover:border-muted-foreground/50 transition-colors cursor-pointer bg-card/50"
           >
             <Upload className="w-8 h-8 text-muted-foreground mb-3" />
-            <p className="text-sm font-display font-semibold mb-1">
-              Upload a Look
-            </p>
+            <p className="text-sm font-display font-semibold mb-1">Upload a Look</p>
             <p className="text-xs text-muted-foreground text-center max-w-[200px]">
               Drop an image or tap to scan celebrity outfits with AI
             </p>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleUpload}
-            />
+            <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
           </motion.label>
         ) : (
           <motion.div
@@ -144,7 +183,6 @@ const ScanOverlay = () => {
             exit={{ opacity: 0 }}
             className="relative w-full max-w-md rounded-xl overflow-hidden"
           >
-            {/* Reset button */}
             <button
               onClick={handleReset}
               className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center hover:bg-background transition-colors"
@@ -152,14 +190,8 @@ const ScanOverlay = () => {
               <X className="w-4 h-4" />
             </button>
 
-            {/* Image */}
-            <img
-              src={uploadedImage}
-              alt="Uploaded look"
-              className="w-full object-cover rounded-xl"
-            />
+            <img src={uploadedImage} alt="Uploaded look" className="w-full object-cover rounded-xl" />
 
-            {/* Scanning overlay */}
             {isScanning && (
               <div className="absolute inset-0 rounded-xl">
                 <div className="absolute inset-0 bg-background/40 animate-scan-pulse" />
@@ -171,7 +203,7 @@ const ScanOverlay = () => {
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="flex flex-col items-center gap-2">
                     <ScanLine className="w-6 h-6 text-accent animate-pulse" />
-                     <span className="text-xs font-display font-semibold text-accent tracking-widest uppercase">
+                    <span className="text-xs font-display font-semibold text-accent tracking-widest uppercase">
                       Real-time AI Analysis in Progress...
                     </span>
                   </div>
@@ -179,11 +211,9 @@ const ScanOverlay = () => {
               </div>
             )}
 
-            {/* Results tags */}
             {scanComplete && (
               <>
                 <ScanResults results={scanResults} />
-                {/* Focus tag on the top item */}
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
@@ -192,17 +222,13 @@ const ScanOverlay = () => {
                   style={{ top: "28%", left: "40%" }}
                 >
                   <button
-                    onClick={() => {
-                      if (!showAnalysis) setShowAnalysis(true);
-                    }}
+                    onClick={() => { if (!showAnalysis) setShowAnalysis(true); }}
                     className="relative"
                   >
                     <div className="w-5 h-5 rounded-full bg-accent shadow-[0_0_12px_hsl(var(--accent)),0_0_24px_hsl(var(--accent))]" />
                     <div className="w-5 h-5 rounded-full bg-accent/40 absolute inset-0 animate-ping" />
                   </button>
                 </motion.div>
-
-                {/* AI Analysis Overlay */}
                 <AIAnalysisOverlay active={showAnalysis} onComplete={handleAnalysisComplete} />
               </>
             )}
@@ -210,7 +236,6 @@ const ScanOverlay = () => {
         )}
       </AnimatePresence>
 
-      {/* Detail Bottom Sheet */}
       <ScanDetailSheet
         open={showDetail}
         onClose={() => setShowDetail(false)}
