@@ -169,7 +169,7 @@ const MarketRow = ({
   formatPrice: (usd: number) => string;
   calcDuty: (usd: number) => number;
   calcShipping: (base: number) => number;
-  onBuy: (brand: string, model: string, price: number) => void;
+  onBuy: (seller: string, basePrice: number, duty: number, shipping: number) => void;
   onBridge: (url: string, platform: string) => void;
   bridgeTarget: string | null;
   isSoldOut?: boolean;
@@ -226,7 +226,7 @@ const MarketRow = ({
           </span>
         ) : (
           <button
-            onClick={() => onBuy(name, name, total)}
+            onClick={() => onBuy(name, basePrice, duty, shipping)}
             className="px-3 py-1.5 rounded-lg bg-checkout text-checkout-foreground text-[10px] font-display font-bold uppercase tracking-wider hover:bg-checkout-hover transition-colors flex items-center gap-1"
           >
             <CreditCard className="w-3 h-3" />
@@ -245,7 +245,14 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
   const [marketTab, setMarketTab] = useState<MarketTab>("official");
   const [bridgeTarget, setBridgeTarget] = useState<string | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutItem, setCheckoutItem] = useState<{ brand: string; model: string; price: number; imageUrl?: string } | null>(null);
+  const [checkoutItem, setCheckoutItem] = useState<{
+    brand: string;
+    model: string;
+    price: number;
+    imageUrl?: string;
+    seller?: string;
+    priceBreakdown?: { base: number; duty: number; shipping: number };
+  } | null>(null);
   const [saved, setSaved] = useState(false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
@@ -265,8 +272,16 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
     }, 1200);
   };
 
-  const handleBuy = (brand: string, model: string, price: number) => {
-    setCheckoutItem({ brand, model, price, imageUrl: selectedItem?.imageUrl });
+  const handleBuy = (seller: string, basePrice: number, duty: number, shipping: number) => {
+    const total = basePrice + duty + shipping;
+    setCheckoutItem({
+      brand: selectedItem?.brand || "Unknown",
+      model: selectedItem?.product_name || selectedItem?.model || "",
+      price: total,
+      imageUrl: selectedItem?.imageUrl,
+      seller,
+      priceBreakdown: { base: basePrice, duty, shipping },
+    });
     setShowCheckout(true);
   };
 
