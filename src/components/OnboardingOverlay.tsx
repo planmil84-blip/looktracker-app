@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Globe, ChevronRight, MapPin, Sparkles } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { countries, useLocale, type Country } from "@/contexts/LocaleContext";
 
 const OnboardingOverlay = () => {
   const { country, setCountry, lang, setLang, setOnboarded, onboarded } = useLocale();
+  const location = useLocation();
   const [step, setStep] = useState<"welcome" | "country" | "language">("welcome");
   const [selectedCountry, setSelectedCountry] = useState<Country>(country);
 
-  if (onboarded) return null;
+  // Skip onboarding entirely on payment-success route
+  if (onboarded || location.pathname === "/payment-success") return null;
 
   const languages = [
     { code: "en", label: "English", flag: "🇺🇸" },
