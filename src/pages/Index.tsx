@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Header from "@/components/Header";
 import CelebCard from "@/components/CelebCard";
 import ScanOverlay from "@/components/ScanOverlay";
@@ -10,7 +10,16 @@ import { useLocale } from "@/contexts/LocaleContext";
 const Index = () => {
   const [activeTab, setActiveTab] = useState<"feed" | "scan" | "closet">("feed");
   const [selectedLook, setSelectedLook] = useState<CelebLook | null>(null);
+  const [scanImageUrl, setScanImageUrl] = useState<string | null>(null);
+  const [scanContext, setScanContext] = useState("");
   const { t, onboarded } = useLocale();
+
+  const handleScanLook = useCallback((look: CelebLook) => {
+    setSelectedLook(null);
+    setScanImageUrl(look.image);
+    setScanContext(`${look.celeb} ${look.event}`);
+    setActiveTab("scan");
+  }, []);
 
   if (!onboarded) return null;
 
@@ -50,7 +59,11 @@ const Index = () => {
                 {t("scanSub")}
               </p>
             </div>
-            <ScanOverlay />
+            <ScanOverlay
+              externalImageUrl={scanImageUrl}
+              externalContext={scanContext}
+              onExternalConsumed={() => { setScanImageUrl(null); setScanContext(""); }}
+            />
           </>
         ) : (
           <ClosetPage />
@@ -60,6 +73,7 @@ const Index = () => {
       <LookDetailSheet
         look={selectedLook}
         onClose={() => setSelectedLook(null)}
+        onScanLook={handleScanLook}
       />
     </div>
   );

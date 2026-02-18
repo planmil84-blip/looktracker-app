@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, ScanLine, X } from "lucide-react";
 import ScanResults from "./ScanResults";
@@ -77,7 +77,13 @@ async function analyzeImage(file: File, context: string): Promise<AnalyzedItem[]
   }));
 }
 
-const ScanOverlay = () => {
+interface ScanOverlayProps {
+  externalImageUrl?: string | null;
+  externalContext?: string;
+  onExternalConsumed?: () => void;
+}
+
+const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: ScanOverlayProps) => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [contextHint, setContextHint] = useState("");
   const [isScanning, setIsScanning] = useState(false);
@@ -86,6 +92,7 @@ const ScanOverlay = () => {
   const [showDetail, setShowDetail] = useState(false);
   const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>([]);
   const { toast } = useToast();
+  const externalTriggered = useRef(false);
 
   const fetchImagesForItems = useCallback(async (items: AnalyzedItem[], hint: string) => {
     const SEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-product-image`;
@@ -134,6 +141,46 @@ const ScanOverlay = () => {
     });
   }, []);
 
+  // Auto-trigger scan when receiving an image from Trending feed
+  useEffect(() => {
+    if (externalImageUrl && !externalTriggered.current) {
+      externalTriggered.current = true;
+      if (externalContext) setContextHint(externalContext);
+      setUploadedImage(externalImageUrl);
+      setScanComplete(false);
+      setShowDetail(false);
+      setShowAnalysis(false);
+      setAnalyzedItems([]);
+      setIsScanning(true);
+      onExternalConsumed?.();
+
+      (async () => {
+        try {
+          const resp = await fetch(externalImageUrl);
+          const blob = await resp.blob();
+          const file = new File([blob], "celeb-look.jpg", { type: blob.type });
+          const items = await analyzeImage(file, externalContext || "");
+          const itemsWithLoading = items.map((it) => ({ ...it, imageLoading: true }));
+          setAnalyzedItems(itemsWithLoading);
+          setIsScanning(false);
+          setScanComplete(true);
+          setTimeout(() => setShowAnalysis(true), 500);
+          fetchImagesForItems(itemsWithLoading, externalContext || "");
+        } catch (err: any) {
+          console.error("AI analysis failed:", err);
+          setIsScanning(false);
+          toast({
+            title: "분석 실패",
+            description: err.message || "AI 분석에 실패했습니다. 다시 시도해주세요.",
+            variant: "destructive",
+          });
+        }
+      })();
+    }
+    if (!externalImageUrl) {
+      externalTriggered.current = false;
+    }
+  }, [externalImageUrl, externalContext, onExternalConsumed, toast, fetchImagesForItems]);
   const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
