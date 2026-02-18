@@ -26,11 +26,11 @@ serve(async (req) => {
       throw new Error("OPENAI_API_KEY is not configured");
     }
 
-    // Step 1: Try Firecrawl search if available
+    // Step 1: Try Firecrawl search for real official product images
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
     if (FIRECRAWL_API_KEY) {
       try {
-        const searchQuery = `${brand} ${model} official product image`;
+        const searchQuery = `${brand} ${model} official product shot white background`;
         console.log("Firecrawl search:", searchQuery);
 
         const fcResponse = await fetch("https://api.firecrawl.dev/v1/search", {
@@ -49,33 +49,27 @@ serve(async (req) => {
         if (fcResponse.ok) {
           const fcData = await fcResponse.json();
           const results = fcData.data || [];
-
-          // Look for image URLs in results
           for (const result of results) {
             const links = result.links || [];
             for (const link of links) {
               if (/\.(jpg|jpeg|png|webp)(\?|$)/i.test(link)) {
-                // Verify the image is accessible
                 try {
                   const imgCheck = await fetch(link, { method: "HEAD" });
-                  if (imgCheck.ok) {
-                    const contentType = imgCheck.headers.get("content-type") || "";
-                    if (contentType.startsWith("image/")) {
-                      console.log("Found product image via Firecrawl:", link);
-                      return new Response(
-                        JSON.stringify({ imageUrl: link, source: "firecrawl" }),
-                        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-                      );
-                    }
+                  if (imgCheck.ok && (imgCheck.headers.get("content-type") || "").startsWith("image/")) {
+                    console.log("Found product image via Firecrawl:", link);
+                    return new Response(
+                      JSON.stringify({ imageUrl: link, source: "firecrawl" }),
+                      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                    );
                   }
-                } catch { /* skip broken links */ }
+                } catch { /* skip */ }
               }
             }
           }
         }
-        console.log("Firecrawl search returned no usable images, falling back to DALL-E");
+        console.log("Firecrawl: no usable images, falling back to DALL-E");
       } catch (err) {
-        console.error("Firecrawl search failed:", err);
+        console.error("Firecrawl failed:", err);
       }
     }
 
