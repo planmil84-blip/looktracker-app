@@ -71,6 +71,42 @@ const ScanOverlay = () => {
   const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>([]);
   const { toast } = useToast();
 
+  const fetchImagesForItems = useCallback(async (items: AnalyzedItem[]) => {
+    const SEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-product-image`;
+    items.forEach(async (item, idx) => {
+      try {
+        const resp = await fetch(SEARCH_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            brand: item.brand,
+            model: item.product_name || item.model || "",
+            color: item.color || "",
+            category: item.category || "",
+            material: item.material || "",
+          }),
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.imageUrl) {
+            setAnalyzedItems((prev) =>
+              prev.map((it, i) => (i === idx ? { ...it, imageUrl: data.imageUrl, imageLoading: false } : it))
+            );
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn(`Image fetch failed for ${item.brand}`, e);
+      }
+      setAnalyzedItems((prev) =>
+        prev.map((it, i) => (i === idx ? { ...it, imageLoading: false } : it))
+      );
+    });
+  }, []);
+
   const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -84,10 +120,14 @@ const ScanOverlay = () => {
 
     try {
       const items = await analyzeImage(file, contextHint);
-      setAnalyzedItems(items);
+      // Mark items as loading images
+      const itemsWithLoading = items.map((it) => ({ ...it, imageLoading: true }));
+      setAnalyzedItems(itemsWithLoading);
       setIsScanning(false);
       setScanComplete(true);
       setTimeout(() => setShowAnalysis(true), 500);
+      // Fire off image searches in parallel
+      fetchImagesForItems(itemsWithLoading);
     } catch (err: any) {
       console.error("AI analysis failed:", err);
       setIsScanning(false);
@@ -97,7 +137,7 @@ const ScanOverlay = () => {
         variant: "destructive",
       });
     }
-  }, [toast, contextHint]);
+  }, [toast, contextHint, fetchImagesForItems]);
 
   const handleAnalysisComplete = useCallback(() => {
     setShowAnalysis(false);
