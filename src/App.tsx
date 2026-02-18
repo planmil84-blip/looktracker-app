@@ -11,23 +11,25 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <LocaleProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <OnboardingOverlay />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/payment-success" element={<PaymentSuccess />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </LocaleProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <LocaleProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <OnboardingOverlay />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/payment-success" element={<PaymentSuccess />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </LocaleProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
