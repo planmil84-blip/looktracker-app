@@ -33,28 +33,33 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-pro",
         messages: [
           {
             role: "system",
-            content: `You are a fashion item identification expert. Analyze the clothing/fashion items visible in the image and return a JSON array of identified items. For each item, provide:
-- brand: the brand name (best guess if uncertain)
-- model: the specific model/product name
-- category: one of "Tops", "Outerwear", "Bottoms", "Dresses", "Shoes", "Bags", "Accessories", "Jewelry"
-- material: primary material composition (e.g. "70% Viscose, 30% Polyamide")
-- hsCode: the HS tariff code for customs (e.g. "6110.30")
-- hsDescription: short description of the HS classification
-- estimatedPrice: estimated retail price in USD
-- confidence: confidence percentage (0-100)
+            content: `You are a world-class fashion identification expert specializing in luxury and K-fashion brands. Given an image, meticulously analyze every visible clothing item, accessory, bag, and shoe worn by each person.
 
-Return ONLY valid JSON array, no markdown or explanation.`,
+For EACH item, return:
+- brand: The exact brand name (e.g. "Jacquemus", "Miu Miu", "Nike"). If uncertain, provide your best guess with reasoning.
+- model: The specific product/model name (e.g. "La Maille Valensole Knit Top", "Air Force 1 '07"). Be as precise as possible.
+- category: One of "Tops", "Outerwear", "Bottoms", "Dresses", "Shoes", "Bags", "Accessories", "Jewelry", "Eyewear", "Headwear"
+- color: The exact color name (e.g. "Sage Green", "Ivory", "Black")
+- material: Primary material composition (e.g. "70% Viscose, 30% Polyamide", "100% Leather")
+- hsCode: The 6-digit HS tariff code for customs classification (e.g. "6110.30" for knitted tops, "6402.99" for rubber footwear)
+- hsDescription: A short description of the HS classification (e.g. "Knitted garments of man-made fibres")
+- estimatedPrice: Estimated retail price in USD (integer)
+- confidence: Your confidence percentage 0-100
+
+Be thorough — identify ALL visible items, not just the most prominent one. If a brand logo or label is visible, use it. If not, use design cues, silhouette, and styling context.
+
+Return ONLY a valid JSON array. No markdown, no explanation, no code fences.`,
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Identify all fashion items in this image. Return JSON array.",
+                text: "Identify all fashion items in this image. Analyze the brand, model, color, material, and customs classification for each item. Return JSON array.",
               },
               {
                 type: "image_url",
@@ -65,8 +70,8 @@ Return ONLY valid JSON array, no markdown or explanation.`,
             ],
           },
         ],
-        temperature: 0.2,
-        max_tokens: 2000,
+        temperature: 0.1,
+        max_tokens: 3000,
       }),
     });
 
@@ -91,16 +96,16 @@ Return ONLY valid JSON array, no markdown or explanation.`,
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "[]";
 
-    // Parse the JSON from the response
     let items;
     try {
-      // Handle potential markdown code blocks
       const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       items = JSON.parse(cleaned);
     } catch {
       console.error("Failed to parse AI response:", content);
       items = [];
     }
+
+    console.log(`Successfully analyzed image: ${Array.isArray(items) ? items.length : 0} items found`);
 
     return new Response(
       JSON.stringify({ items }),
