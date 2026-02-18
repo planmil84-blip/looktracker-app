@@ -108,6 +108,13 @@ const LookDetailSheet = ({ look, onClose }: LookDetailSheetProps) => {
                         ? "bg-foreground text-background hover:opacity-90"
                         : "bg-accent text-accent-foreground hover:opacity-90"
                     }`}
+                    onClick={() => {
+                      if (!item.inStock) {
+                        // Redirect to resale search
+                        window.open(`https://www.ebay.com/sch/${encodeURIComponent(item.brand + " " + item.model)}`, "_blank");
+                      }
+                      // In-stock Buy → handled by parent via checkout flow
+                    }}
                   >
                     {item.inStock ? (
                       <>

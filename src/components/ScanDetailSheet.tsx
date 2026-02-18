@@ -486,22 +486,29 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                       </p>
                     </div>
 
-                    {/* Market tabs */}
+                    {/* Market tabs with tooltips */}
                     <div className="flex gap-1 p-1 bg-secondary/50 rounded-xl">
-                      {marketTabs.map(({ key, label, icon: Icon }) => (
-                        <button
-                          key={key}
-                          onClick={() => setMarketTab(key)}
-                          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-display font-bold uppercase tracking-wider transition-all ${
-                            marketTab === key
-                              ? "bg-foreground text-background shadow-sm"
-                              : "text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          <Icon className="w-3 h-3" />
-                          {label}
-                        </button>
-                      ))}
+                      {marketTabs.map(({ key, label, icon: Icon }) => {
+                        const tooltipText =
+                          key === "official" ? "브랜드 공식 판매 채널" :
+                          key === "resale" ? "리세일 또는 중고 플랫폼" :
+                          "스캔 상품과 유사한 디자인의 K-쇼핑몰 아이템";
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => setMarketTab(key)}
+                            title={tooltipText}
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-display font-bold uppercase tracking-wider transition-all ${
+                              marketTab === key
+                                ? "bg-foreground text-background shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <Icon className="w-3 h-3" />
+                            {label}
+                          </button>
+                        );
+                      })}
                     </div>
 
                     {/* Market listings */}
