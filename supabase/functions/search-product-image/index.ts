@@ -6,13 +6,88 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+async function serpSearch(
+  engine: string,
+  params: Record<string, string>,
+  apiKey: string
+) {
+  const url = new URL("https://serpapi.com/search.json");
+  url.searchParams.set("engine", engine);
+  url.searchParams.set("api_key", apiKey);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const resp = await fetch(url.toString());
+  if (!resp.ok) return null;
+  return resp.json();
+}
+
+/** Ask GPT-4o Vision to score how well a candidate image matches the original description */
+async function visualVerify(
+  candidateImageUrl: string,
+  description: string,
+  openaiKey: string
+): Promise<{ score: number; verdict: string }> {
+  try {
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are a fashion product verification expert. Given a candidate product image and a textual description of the target item, rate how closely the image matches the description.
+Consider: pattern/print details, neckline shape, sleeve length, button placement, silhouette, color, material texture.
+Return ONLY valid JSON: {"score": 0-100, "verdict": "MATCH"|"SIMILAR"|"MISMATCH"}
+- MATCH: 90-100, nearly identical product
+- SIMILAR: 60-89, same brand/category but different details
+- MISMATCH: 0-59, clearly different product`,
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Target item description: "${description}"\n\nDoes this product image match the description? Return JSON only.`,
+              },
+              { type: "image_url", image_url: { url: candidateImageUrl } },
+            ],
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 200,
+      }),
+    });
+    if (!resp.ok) return { score: 50, verdict: "SIMILAR" };
+    const data = await resp.json();
+    const raw = data.choices?.[0]?.message?.content || "";
+    const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    return JSON.parse(cleaned);
+  } catch {
+    return { score: 50, verdict: "SIMILAR" };
+  }
+}
+
+function verdictToLabel(verdict: string): string {
+  if (verdict === "MATCH") return "Exact Match";
+  if (verdict === "SIMILAR") return "Similar Style";
+  return "Inspired By";
+}
+
+// ── main ─────────────────────────────────────────────────────────────────────
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { brand, model, color, category, material, search_keywords, is_vintage } = await req.json();
+    const { brand, model, color, category, material, search_keywords, is_vintage, context_hint } =
+      await req.json();
 
     if (!brand || !model) {
       return new Response(
@@ -22,145 +97,207 @@ serve(async (req) => {
     }
 
     const SERPAPI_KEY = Deno.env.get("SERPAPI_API_KEY");
-    if (!SERPAPI_KEY) {
-      throw new Error("SERPAPI_API_KEY is not configured");
+    if (!SERPAPI_KEY) throw new Error("SERPAPI_API_KEY is not configured");
+
+    const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY");
+
+    // Build a rich description string for visual verification later
+    const itemDescription = search_keywords || `${brand} ${model} ${color || ""} ${material || ""}`.trim();
+    console.log("Item description for matching:", itemDescription);
+
+    // ─── 1) Context-based refinement: build multiple query variants ───
+    const queryVariants: string[] = [];
+
+    // Primary: precise search keywords from GPT-4o
+    if (search_keywords) {
+      queryVariants.push(search_keywords);
+    }
+    queryVariants.push(`${brand} ${model}${color ? ` ${color}` : ""}`);
+
+    // Context hint integration (e.g. "제니 공항룩")
+    if (context_hint) {
+      queryVariants.push(`${context_hint} ${brand} ${model}`);
     }
 
-    // Use GPT-4o generated precise search keywords if available
-    const searchQuery = search_keywords || `${brand} ${model}${color ? ` ${color}` : ""} official product`;
-    console.log("Precise search query:", searchQuery);
-
-    let match_label = "Exact Match";
-
-    // Step 1: Google Shopping search
-    const shoppingUrl = new URL("https://serpapi.com/search.json");
-    shoppingUrl.searchParams.set("engine", "google_shopping");
-    shoppingUrl.searchParams.set("q", searchQuery);
-    shoppingUrl.searchParams.set("num", "5");
-    shoppingUrl.searchParams.set("api_key", SERPAPI_KEY);
-
-    const shoppingResp = await fetch(shoppingUrl.toString());
-
-    if (shoppingResp.ok) {
-      const shoppingData = await shoppingResp.json();
-      const results = shoppingData.shopping_results || [];
-
-      if (results.length > 0) {
-        // Check title similarity to determine match quality
-        const best = results[0];
-        const titleLower = (best.title || "").toLowerCase();
-        const brandLower = brand.toLowerCase();
-        const modelLower = model.toLowerCase();
-
-        if (titleLower.includes(brandLower) && titleLower.includes(modelLower.split(" ")[0])) {
-          match_label = "Exact Match";
-        } else if (titleLower.includes(brandLower)) {
-          match_label = "Brand Match";
-        } else {
-          match_label = "Similar Style";
-        }
-
-        const imageUrl = best.thumbnail || null;
-        const sellers = results.slice(0, 5).map((r: any) => ({
-          name: r.source || r.seller || "Unknown",
-          price: r.extracted_price || 0,
-          currency: r.currency || "USD",
-          link: r.link || r.product_link || "",
-          thumbnail: r.thumbnail || "",
-        }));
-
-        console.log(`Found product [${match_label}]:`, best.title);
-        return new Response(
-          JSON.stringify({
-            imageUrl,
-            source: "google_shopping",
-            productTitle: best.title || `${brand} ${model}`,
-            sellers,
-            match_label,
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
-
-    // Step 2: If vintage/past-season, search resale platforms
+    // Archive/vintage variants for past-season items
     if (is_vintage) {
-      console.log("Item is vintage — searching resale platforms...");
-      const resaleQueries = [
-        `${brand} ${model} site:vestiairecollective.com`,
-        `${brand} ${model} site:therealreal.com`,
-      ];
+      queryVariants.push(`${brand} ${model} archive`);
+      queryVariants.push(`${brand} ${model} vintage used`);
+    }
 
-      for (const rq of resaleQueries) {
-        const resaleUrl = new URL("https://serpapi.com/search.json");
-        resaleUrl.searchParams.set("engine", "google");
-        resaleUrl.searchParams.set("q", rq);
-        resaleUrl.searchParams.set("num", "3");
-        resaleUrl.searchParams.set("api_key", SERPAPI_KEY);
+    console.log("Query variants:", queryVariants);
 
-        const resaleResp = await fetch(resaleUrl.toString());
-        if (resaleResp.ok) {
-          const resaleData = await resaleResp.json();
-          const organic = resaleData.organic_results || [];
-          if (organic.length > 0) {
-            const best = organic[0];
-            // Try to extract thumbnail
-            const thumb = best.thumbnail || best.favicon || null;
-            const platform = rq.includes("vestiaire") ? "Vestiaire Collective" : "The RealReal";
-            console.log(`Found resale listing on ${platform}:`, best.title);
-            return new Response(
-              JSON.stringify({
-                imageUrl: thumb,
-                source: "resale",
-                productTitle: best.title || `${brand} ${model}`,
-                sellers: [{
-                  name: platform,
-                  price: 0,
-                  currency: "USD",
-                  link: best.link || "",
-                  thumbnail: thumb || "",
-                }],
-                match_label: "Resale · Pre-owned",
-              }),
-              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
+    // ─── 2) Google Shopping search with multiple queries ─────────────
+    type Candidate = { title: string; thumbnail: string; price: number; currency: string; source: string; link: string };
+    const candidates: Candidate[] = [];
+
+    for (const q of queryVariants.slice(0, 3)) {
+      const data = await serpSearch("google_shopping", { q, num: "5" }, SERPAPI_KEY);
+      if (data?.shopping_results) {
+        for (const r of data.shopping_results.slice(0, 5)) {
+          if (r.thumbnail) {
+            candidates.push({
+              title: r.title || "",
+              thumbnail: r.thumbnail,
+              price: r.extracted_price || 0,
+              currency: r.currency || "USD",
+              source: r.source || r.seller || "Unknown",
+              link: r.link || r.product_link || "",
+            });
           }
         }
       }
+      if (candidates.length >= 5) break;
     }
 
-    // Step 3: Fallback to Google Images
-    console.log("Trying Google Images fallback...");
-    const imagesUrl = new URL("https://serpapi.com/search.json");
-    imagesUrl.searchParams.set("engine", "google_images");
-    imagesUrl.searchParams.set("q", `${brand} ${model} white background product shot`);
-    imagesUrl.searchParams.set("num", "5");
-    imagesUrl.searchParams.set("api_key", SERPAPI_KEY);
+    // ─── 3) Resale platform search (Grailed, Vestiaire, TheRealReal) ─
+    const resaleCandidates: { title: string; thumbnail: string; link: string; platform: string }[] = [];
 
-    const imagesResp = await fetch(imagesUrl.toString());
+    if (is_vintage || candidates.length < 3) {
+      console.log("Searching resale platforms...");
+      const resaleQueries = [
+        { q: `${brand} ${model} site:grailed.com`, platform: "Grailed" },
+        { q: `${brand} ${model} site:vestiairecollective.com`, platform: "Vestiaire Collective" },
+        { q: `${brand} ${model} site:therealreal.com`, platform: "The RealReal" },
+      ];
 
-    if (imagesResp.ok) {
-      const imagesData = await imagesResp.json();
-      const imageResults = imagesData.images_results || [];
+      const resalePromises = resaleQueries.map(async ({ q, platform }) => {
+        const data = await serpSearch("google", { q, num: "3" }, SERPAPI_KEY);
+        if (data?.organic_results) {
+          for (const r of data.organic_results.slice(0, 2)) {
+            if (r.thumbnail || r.favicon) {
+              resaleCandidates.push({
+                title: r.title || "",
+                thumbnail: r.thumbnail || r.favicon || "",
+                link: r.link || "",
+                platform,
+              });
+            }
+          }
+        }
+      });
+      await Promise.all(resalePromises);
+      console.log(`Found ${resaleCandidates.length} resale listings`);
+    }
 
-      if (imageResults.length > 0) {
-        const bestImage = imageResults[0];
-        console.log("Found product image via Google Images");
-        return new Response(
-          JSON.stringify({
-            imageUrl: bestImage.thumbnail || bestImage.original,
-            source: "google_images",
-            productTitle: bestImage.title || `${brand} ${model}`,
-            sellers: [],
-            match_label: "Similar Style",
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    // ─── 4) Visual verification with GPT-4o Vision ───────────────────
+    let bestResult: {
+      imageUrl: string | null;
+      source: string;
+      productTitle: string;
+      sellers: any[];
+      match_label: string;
+    } | null = null;
+
+    if (OPENAI_KEY && candidates.length > 0) {
+      console.log(`Verifying ${Math.min(candidates.length, 3)} candidates visually...`);
+      const verifyBatch = candidates.slice(0, 3);
+      const verifyResults = await Promise.all(
+        verifyBatch.map(async (c) => {
+          const v = await visualVerify(c.thumbnail, itemDescription, OPENAI_KEY);
+          return { ...c, ...v };
+        })
+      );
+
+      // Sort by score descending
+      verifyResults.sort((a, b) => b.score - a.score);
+      console.log("Verification scores:", verifyResults.map((r) => `${r.title.slice(0, 40)}… → ${r.score} (${r.verdict})`));
+
+      const top = verifyResults[0];
+      if (top.score >= 60) {
+        // Build sellers from all candidates
+        const sellers = verifyResults
+          .filter((r) => r.score >= 50)
+          .map((r) => ({
+            name: r.source,
+            price: r.price,
+            currency: r.currency,
+            link: r.link,
+            thumbnail: r.thumbnail,
+          }));
+
+        bestResult = {
+          imageUrl: top.thumbnail,
+          source: "google_shopping",
+          productTitle: top.title || `${brand} ${model}`,
+          sellers,
+          match_label: verdictToLabel(top.verdict),
+        };
+      }
+    } else if (candidates.length > 0) {
+      // No OpenAI key — fall back to text-based matching
+      const best = candidates[0];
+      const titleLower = best.title.toLowerCase();
+      const brandLower = brand.toLowerCase();
+      const modelLower = model.toLowerCase();
+      let label = "Similar Style";
+      if (titleLower.includes(brandLower) && titleLower.includes(modelLower.split(" ")[0])) {
+        label = "Exact Match";
+      } else if (titleLower.includes(brandLower)) {
+        label = "Brand Match";
+      }
+
+      bestResult = {
+        imageUrl: best.thumbnail,
+        source: "google_shopping",
+        productTitle: best.title || `${brand} ${model}`,
+        sellers: candidates.slice(0, 5).map((r) => ({
+          name: r.source,
+          price: r.price,
+          currency: r.currency,
+          link: r.link,
+          thumbnail: r.thumbnail,
+        })),
+        match_label: label,
+      };
+    }
+
+    // If shopping didn't yield good results, try resale
+    if (!bestResult && resaleCandidates.length > 0) {
+      const best = resaleCandidates[0];
+      bestResult = {
+        imageUrl: best.thumbnail,
+        source: "resale",
+        productTitle: best.title || `${brand} ${model}`,
+        sellers: resaleCandidates.map((r) => ({
+          name: r.platform,
+          price: 0,
+          currency: "USD",
+          link: r.link,
+          thumbnail: r.thumbnail,
+        })),
+        match_label: "Resale · Pre-owned",
+      };
+    }
+
+    // ─── 5) Fallback: Google Images ──────────────────────────────────
+    if (!bestResult) {
+      console.log("Trying Google Images fallback...");
+      const data = await serpSearch("google_images", {
+        q: `${brand} ${model} white background product shot`,
+        num: "5",
+      }, SERPAPI_KEY);
+
+      const imgs = data?.images_results || [];
+      if (imgs.length > 0) {
+        bestResult = {
+          imageUrl: imgs[0].thumbnail || imgs[0].original,
+          source: "google_images",
+          productTitle: imgs[0].title || `${brand} ${model}`,
+          sellers: [],
+          match_label: "Similar Style",
+        };
       }
     }
 
-    // No results
-    console.log("No images found for:", searchQuery);
+    if (bestResult) {
+      console.log(`Final result [${bestResult.match_label}]:`, bestResult.productTitle);
+      return new Response(JSON.stringify(bestResult), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log("No images found for:", itemDescription);
     return new Response(
       JSON.stringify({ imageUrl: null, source: "none", sellers: [], match_label: "No Match" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
