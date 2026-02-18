@@ -33,7 +33,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-5",
+        model: "google/gemini-2.5-pro",
         messages: [
           {
             role: "system",
@@ -89,8 +89,8 @@ Return ONLY a valid JSON array. No markdown, no explanation, no code fences.`,
         );
       }
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway returned ${response.status}`);
+      console.error("AI gateway error:", response.status, errorText.slice(0, 500));
+      throw new Error(`AI gateway returned ${response.status}: ${errorText.slice(0, 200)}`);
     }
 
     const data = await response.json();
