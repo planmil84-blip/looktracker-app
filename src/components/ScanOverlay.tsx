@@ -48,11 +48,6 @@ async function analyzeImage(file: File): Promise<AnalyzedItem[]> {
   return data.items || [];
 }
 
-const fallbackScanResults = [
-  { brand: "JACQUEMUS", model: "La Maille Valensole Knit Top", price: 490, inStock: false, confidence: 96, top: 30, left: 45 },
-  { brand: "Acne Studios", model: "Leather Jacket", price: 1800, inStock: false, confidence: 87, top: 65, left: 35 },
-  { brand: "Bottega Veneta", model: "Puddle Boots", price: 950, inStock: true, confidence: 91, top: 85, left: 50 },
-];
 
 const ScanOverlay = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -77,17 +72,18 @@ const ScanOverlay = () => {
     try {
       const items = await analyzeImage(file);
       setAnalyzedItems(items);
+      setIsScanning(false);
+      setScanComplete(true);
+      setTimeout(() => setShowAnalysis(true), 500);
     } catch (err: any) {
-      console.error("AI analysis failed, using fallback:", err);
+      console.error("AI analysis failed:", err);
+      setIsScanning(false);
       toast({
-        title: "유사한 스타일을 찾는 중...",
-        description: "AI 분석에 실패했습니다. 유사한 스타일로 대체합니다.",
+        title: "분석 실패",
+        description: err.message || "AI 분석에 실패했습니다. 다시 시도해주세요.",
+        variant: "destructive",
       });
     }
-
-    setIsScanning(false);
-    setScanComplete(true);
-    setTimeout(() => setShowAnalysis(true), 500);
   }, [toast]);
 
   const handleAnalysisComplete = useCallback(() => {
@@ -104,18 +100,16 @@ const ScanOverlay = () => {
     setAnalyzedItems([]);
   };
 
-  // Build scan result dots from AI results or fallback
-  const scanResults = analyzedItems.length > 0
-    ? analyzedItems.slice(0, 3).map((item, i) => ({
-        brand: item.brand,
-        model: item.model,
-        price: item.estimatedPrice,
-        inStock: true,
-        confidence: item.confidence,
-        top: 25 + i * 25,
-        left: 35 + (i % 2) * 20,
-      }))
-    : fallbackScanResults;
+  // Build scan result dots from AI results only (no fallback)
+  const scanResults = analyzedItems.slice(0, 3).map((item, i) => ({
+    brand: item.brand,
+    model: item.model,
+    price: item.estimatedPrice,
+    inStock: true,
+    confidence: item.confidence,
+    top: 25 + i * 25,
+    left: 35 + (i % 2) * 20,
+  }));
 
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center px-4">
@@ -177,8 +171,8 @@ const ScanOverlay = () => {
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="flex flex-col items-center gap-2">
                     <ScanLine className="w-6 h-6 text-accent animate-pulse" />
-                    <span className="text-xs font-display font-semibold text-accent tracking-widest uppercase">
-                      Analyzing Look...
+                     <span className="text-xs font-display font-semibold text-accent tracking-widest uppercase">
+                      Real-time AI Analysis in Progress...
                     </span>
                   </div>
                 </div>
