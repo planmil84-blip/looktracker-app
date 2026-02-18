@@ -11,7 +11,7 @@ const PaymentSuccess = () => {
 
   // Force onboarded state so onboarding never appears after payment redirect
   useEffect(() => {
-    localStorage.setItem("looktracker_onboarded", "true");
+    sessionStorage.setItem("looktracker_onboarded", "true");
   }, []);
 
   useEffect(() => {
