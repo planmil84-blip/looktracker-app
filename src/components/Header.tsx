@@ -1,4 +1,5 @@
 import { Search, ScanLine, User, ShoppingBag } from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
 
 interface HeaderProps {
   activeTab: "feed" | "scan" | "closet";
@@ -6,6 +7,8 @@ interface HeaderProps {
 }
 
 const Header = ({ activeTab, onTabChange }: HeaderProps) => {
+  const { user } = useUser();
+
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border">
       <div className="container flex items-center justify-between h-14">
@@ -50,14 +53,24 @@ const Header = ({ activeTab, onTabChange }: HeaderProps) => {
           </button>
         </nav>
 
-        {/* Right icons */}
+        {/* Right - user info */}
         <div className="flex items-center gap-3">
           <button className="text-muted-foreground hover:text-foreground transition-colors">
             <Search className="w-5 h-5" />
           </button>
-          <button className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-surface-hover transition-colors">
-            <User className="w-4 h-4" />
-          </button>
+          {user ? (
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center">
+                <span className="text-xs font-display font-bold text-accent">
+                  {user.name.charAt(0)}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <button className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-surface-hover transition-colors">
+              <User className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </header>

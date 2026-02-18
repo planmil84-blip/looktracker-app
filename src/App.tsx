@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LocaleProvider } from "@/contexts/LocaleContext";
+import { UserProvider } from "@/contexts/UserContext";
 import OnboardingOverlay from "@/components/OnboardingOverlay";
 import Index from "./pages/Index";
 import PaymentSuccess from "./pages/PaymentSuccess";
@@ -16,16 +17,18 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <LocaleProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <OnboardingOverlay />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/payment-success" element={<PaymentSuccess />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+          <UserProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <OnboardingOverlay />
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/payment-success" element={<PaymentSuccess />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </UserProvider>
         </LocaleProvider>
       </TooltipProvider>
     </QueryClientProvider>

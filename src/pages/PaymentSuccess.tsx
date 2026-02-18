@@ -2,21 +2,17 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle, ShoppingBag, ArrowLeft } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useUser } from "@/contexts/UserContext";
 
 const PaymentSuccess = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("session_id");
-  const [showConfetti, setShowConfetti] = useState(true);
+  const { user } = useUser();
 
   // Force onboarded state so onboarding never appears after payment redirect
   useEffect(() => {
     sessionStorage.setItem("looktracker_onboarded", "true");
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowConfetti(false), 3000);
-    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -41,9 +37,17 @@ const PaymentSuccess = () => {
           <h1 className="font-display text-2xl font-bold tracking-tight mb-2">
             Order Confirmed!
           </h1>
-          <p className="text-sm text-muted-foreground">
-            결제가 성공적으로 완료되었습니다. 주문 내역은 My Closet에서 확인하실 수 있습니다.
-          </p>
+          {user ? (
+            <p className="text-sm text-muted-foreground">
+              <span className="text-foreground font-semibold">{user.name}</span> 님에게 배송이 시작될 예정입니다.
+              <br />
+              주문 내역은 My Closet에서 확인하실 수 있습니다.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              결제가 성공적으로 완료되었습니다. 주문 내역은 My Closet에서 확인하실 수 있습니다.
+            </p>
+          )}
         </div>
 
         {/* Order tag */}
