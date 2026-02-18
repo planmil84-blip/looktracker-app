@@ -8,22 +8,27 @@ import { useToast } from "@/hooks/use-toast";
 
 export interface AnalyzedItem {
   brand: string;
-  model: string;
+  product_name: string;
+  collection: string;
   category: string;
   color: string;
   material: string;
   hsCode: string;
   hsDescription: string;
-  estimatedPrice: number;
+  original_price: number;
+  official_status: string;
+  resale_market: string;
   confidence: number;
+  /** @deprecated kept for backward compat */
+  model?: string;
+  estimatedPrice?: number;
   imageUrl?: string;
   imageLoading?: boolean;
 }
 
 const ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-image`;
-const IMAGE_SEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-product-image`;
 
-async function analyzeImage(file: File): Promise<AnalyzedItem[]> {
+async function analyzeImage(file: File, context: string): Promise<AnalyzedItem[]> {
   const base64 = await new Promise<string>((resolve) => {
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -39,7 +44,7 @@ async function analyzeImage(file: File): Promise<AnalyzedItem[]> {
       "Content-Type": "application/json",
       Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
-    body: JSON.stringify({ imageBase64: base64 }),
+    body: JSON.stringify({ imageBase64: base64, context: context || undefined }),
   });
 
   if (!resp.ok) {
@@ -48,58 +53,23 @@ async function analyzeImage(file: File): Promise<AnalyzedItem[]> {
   }
 
   const data = await resp.json();
-  return (data.items || []).map((item: any) => ({ ...item, imageLoading: true }));
-}
-
-async function searchProductImage(item: AnalyzedItem): Promise<string | null> {
-  try {
-    const resp = await fetch(IMAGE_SEARCH_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({
-        brand: item.brand,
-        model: item.model,
-        color: item.color,
-        category: item.category,
-        material: item.material,
-      }),
-    });
-
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    return data.imageUrl || null;
-  } catch (err) {
-    console.error("Image search failed for", item.brand, item.model, err);
-    return null;
-  }
+  return (data.items || []).map((item: any) => ({
+    ...item,
+    // backward compat aliases
+    model: item.product_name || item.model,
+    estimatedPrice: item.original_price || item.estimatedPrice,
+  }));
 }
 
 const ScanOverlay = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [contextHint, setContextHint] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>([]);
   const { toast } = useToast();
-
-  const fetchImagesForItems = useCallback(async (items: AnalyzedItem[]) => {
-    // Search images for all items in parallel
-    const promises = items.map(async (item, idx) => {
-      const imageUrl = await searchProductImage(item);
-      setAnalyzedItems((prev) => {
-        const updated = [...prev];
-        if (updated[idx]) {
-          updated[idx] = { ...updated[idx], imageUrl: imageUrl || undefined, imageLoading: false };
-        }
-        return updated;
-      });
-    });
-    await Promise.allSettled(promises);
-  }, []);
 
   const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -113,14 +83,11 @@ const ScanOverlay = () => {
     setIsScanning(true);
 
     try {
-      const items = await analyzeImage(file);
+      const items = await analyzeImage(file, contextHint);
       setAnalyzedItems(items);
       setIsScanning(false);
       setScanComplete(true);
       setTimeout(() => setShowAnalysis(true), 500);
-
-      // Start image search in background
-      fetchImagesForItems(items);
     } catch (err: any) {
       console.error("AI analysis failed:", err);
       setIsScanning(false);
@@ -130,7 +97,7 @@ const ScanOverlay = () => {
         variant: "destructive",
       });
     }
-  }, [toast, fetchImagesForItems]);
+  }, [toast, contextHint]);
 
   const handleAnalysisComplete = useCallback(() => {
     setShowAnalysis(false);
@@ -146,12 +113,11 @@ const ScanOverlay = () => {
     setAnalyzedItems([]);
   };
 
-  // Build scan result dots from AI results only
   const scanResults = analyzedItems.slice(0, 3).map((item, i) => ({
     brand: item.brand,
-    model: item.model,
-    price: item.estimatedPrice,
-    inStock: true,
+    model: item.product_name || item.model || "",
+    price: item.original_price || item.estimatedPrice || 0,
+    inStock: item.official_status !== "Sold Out",
     confidence: item.confidence,
     top: 25 + i * 25,
     left: 35 + (i % 2) * 20,
@@ -161,20 +127,37 @@ const ScanOverlay = () => {
     <div className="min-h-[60vh] flex flex-col items-center justify-center px-4">
       <AnimatePresence mode="wait">
         {!uploadedImage ? (
-          <motion.label
+          <motion.div
             key="upload"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="flex flex-col items-center justify-center w-full max-w-md aspect-[3/4] rounded-xl border-2 border-dashed border-border hover:border-muted-foreground/50 transition-colors cursor-pointer bg-card/50"
+            className="w-full max-w-md space-y-3"
           >
-            <Upload className="w-8 h-8 text-muted-foreground mb-3" />
-            <p className="text-sm font-display font-semibold mb-1">Upload a Look</p>
-            <p className="text-xs text-muted-foreground text-center max-w-[200px]">
-              Drop an image or tap to scan celebrity outfits with AI
-            </p>
-            <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-          </motion.label>
+            {/* Context hint input */}
+            <div className="relative">
+              <input
+                type="text"
+                value={contextHint}
+                onChange={(e) => setContextHint(e.target.value)}
+                placeholder="예: 제니가 브이로그에서 입은 조끼, 24FW 공항패션 등"
+                className="w-full px-4 py-3 rounded-xl border border-border bg-card/80 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/40 transition-all"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+                Hint
+              </span>
+            </div>
+
+            {/* Upload area */}
+            <label className="flex flex-col items-center justify-center w-full aspect-[3/4] rounded-xl border-2 border-dashed border-border hover:border-muted-foreground/50 transition-colors cursor-pointer bg-card/50">
+              <Upload className="w-8 h-8 text-muted-foreground mb-3" />
+              <p className="text-sm font-display font-semibold mb-1">Upload a Look</p>
+              <p className="text-xs text-muted-foreground text-center max-w-[200px]">
+                Drop an image or tap to scan celebrity outfits with AI
+              </p>
+              <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+            </label>
+          </motion.div>
         ) : (
           <motion.div
             key="scanning"
