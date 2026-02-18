@@ -70,15 +70,18 @@ const ItemCard = ({
       {/* Image / skeleton */}
       <div className="w-full aspect-square rounded-lg overflow-hidden bg-muted mb-2 relative">
         {item.imageLoading ? (
-          <Skeleton className="w-full h-full" />
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 animate-pulse">
+            <Tag className="w-8 h-8 text-muted-foreground/30" />
+            <span className="text-[8px] text-muted-foreground/50 font-display">이미지를 불러오는 중...</span>
+          </div>
         ) : item.imageUrl ? (
           <img src={item.imageUrl} alt={item.product_name || item.brand} className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Tag className="w-6 h-6 text-muted-foreground/40" />
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+            <Tag className="w-8 h-8 text-muted-foreground/30" />
+            <span className="text-[8px] text-muted-foreground/50 font-display">이미지 없음</span>
           </div>
         )}
-        {/* Status badge */}
         <span
           className={`absolute top-1.5 right-1.5 text-[8px] font-display font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
             isSoldOut ? "bg-accent/90 text-accent-foreground" : "bg-badge-in-stock text-foreground"
