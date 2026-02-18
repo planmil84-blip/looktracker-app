@@ -38,6 +38,16 @@ const kBridgeShops = [
 
 type MarketTab = "official" | "resale" | "k-bridge";
 
+/* ── Derive real stock status from sellers data ── */
+function deriveInStock(item: AnalyzedItem): boolean {
+  // If we have real seller data, check if any seller has a valid price (> 0)
+  if (item.sellers && item.sellers.length > 0) {
+    return item.sellers.some((s) => s.price > 0 && s.link);
+  }
+  // Fall back to the AI-analyzed official_status
+  return item.official_status !== "Sold Out";
+}
+
 /* ── Item thumbnail card ── */
 const ItemCard = ({
   item,
@@ -53,7 +63,7 @@ const ItemCard = ({
   formatPrice: (usd: number) => string;
 }) => {
   const price = item.original_price || item.estimatedPrice || 0;
-  const isSoldOut = item.official_status === "Sold Out";
+  const isSoldOut = !deriveInStock(item);
 
   return (
     <motion.button
@@ -148,6 +158,7 @@ const MarketRow = ({
   onBuy,
   onBridge,
   bridgeTarget,
+  isSoldOut = false,
 }: {
   name: string;
   url: string;
@@ -161,6 +172,7 @@ const MarketRow = ({
   onBuy: (brand: string, model: string, price: number) => void;
   onBridge: (url: string, platform: string) => void;
   bridgeTarget: string | null;
+  isSoldOut?: boolean;
 }) => {
   const duty = calcDuty(basePrice);
   const shipping = calcShipping(baseShipping);
@@ -207,13 +219,20 @@ const MarketRow = ({
         <span className="text-sm font-display font-bold text-accent">
           {formatPrice(total)}
         </span>
-        <button
-          onClick={() => onBuy(name, name, total)}
-          className="px-3 py-1.5 rounded-lg bg-checkout text-checkout-foreground text-[10px] font-display font-bold uppercase tracking-wider hover:bg-checkout-hover transition-colors flex items-center gap-1"
-        >
-          <CreditCard className="w-3 h-3" />
-          Buy Now
-        </button>
+        {isSoldOut ? (
+          <span className="px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-[10px] font-display font-bold uppercase tracking-wider flex items-center gap-1 cursor-not-allowed opacity-60">
+            <CreditCard className="w-3 h-3" />
+            Sold Out
+          </span>
+        ) : (
+          <button
+            onClick={() => onBuy(name, name, total)}
+            className="px-3 py-1.5 rounded-lg bg-checkout text-checkout-foreground text-[10px] font-display font-bold uppercase tracking-wider hover:bg-checkout-hover transition-colors flex items-center gap-1"
+          >
+            <CreditCard className="w-3 h-3" />
+            Buy Now
+          </button>
+        )}
       </div>
     </motion.div>
   );
@@ -477,22 +496,26 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                           <motion.div key="official" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-2">
                             {/* Real sellers from Google Shopping */}
                             {selectedItem?.sellers && selectedItem.sellers.length > 0 ? (
-                              selectedItem.sellers.map((seller) => (
-                                <MarketRow
-                                  key={seller.name}
-                                  name={seller.name}
-                                  url={seller.link ? seller.link.split("?")[0] + "?q=" : "https://www.google.com/search?q="}
-                                  searchQuery={seller.link ? "" : searchQuery}
-                                  basePrice={seller.price || basePrice}
-                                  baseShipping={15}
-                                  formatPrice={formatPrice}
-                                  calcDuty={calcDuty}
-                                  calcShipping={calcShipping}
-                                  onBuy={handleBuy}
-                                  onBridge={(url) => handleBridge(seller.link || url, seller.name)}
-                                  bridgeTarget={bridgeTarget}
-                                />
-                              ))
+                              selectedItem.sellers.map((seller) => {
+                                const sellerInStock = seller.price > 0 && !!seller.link;
+                                return (
+                                  <MarketRow
+                                    key={seller.name}
+                                    name={seller.name}
+                                    url={seller.link ? seller.link.split("?")[0] + "?q=" : "https://www.google.com/search?q="}
+                                    searchQuery={seller.link ? "" : searchQuery}
+                                    basePrice={seller.price || basePrice}
+                                    baseShipping={15}
+                                    formatPrice={formatPrice}
+                                    calcDuty={calcDuty}
+                                    calcShipping={calcShipping}
+                                    onBuy={handleBuy}
+                                    onBridge={(url) => handleBridge(seller.link || url, seller.name)}
+                                    bridgeTarget={bridgeTarget}
+                                    isSoldOut={!sellerInStock}
+                                  />
+                                );
+                              })
                             ) : (
                               officialPartners.map((m) => (
                                 <MarketRow
@@ -508,8 +531,24 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
                                   onBuy={handleBuy}
                                   onBridge={handleBridge}
                                   bridgeTarget={bridgeTarget}
+                                  isSoldOut={!deriveInStock(selectedItem)}
                                 />
                               ))
+                            )}
+
+                            {/* Resale nudge when official is sold out */}
+                            {selectedItem && !deriveInStock(selectedItem) && (
+                              <motion.button
+                                initial={{ opacity: 0, y: 4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                onClick={() => setMarketTab("resale")}
+                                className="w-full flex items-center justify-center gap-2 p-2.5 rounded-lg border border-accent/20 bg-accent/5 hover:bg-accent/10 transition-colors"
+                              >
+                                <Repeat className="w-3.5 h-3.5 text-accent" />
+                                <span className="text-[10px] font-display font-bold text-accent">
+                                  공식몰은 품절이지만 리셀 마켓에 매물이 있습니다 →
+                                </span>
+                              </motion.button>
                             )}
                           </motion.div>
                         )}
