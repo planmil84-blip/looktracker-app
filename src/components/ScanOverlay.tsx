@@ -83,7 +83,7 @@ const ScanOverlay = () => {
   const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>([]);
   const { toast } = useToast();
 
-  const fetchImagesForItems = useCallback(async (items: AnalyzedItem[]) => {
+  const fetchImagesForItems = useCallback(async (items: AnalyzedItem[], hint: string) => {
     const SEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-product-image`;
     items.forEach(async (item, idx) => {
       try {
@@ -101,6 +101,7 @@ const ScanOverlay = () => {
             material: item.material || "",
             search_keywords: item.search_keywords || "",
             is_vintage: item.is_vintage || false,
+            context_hint: hint || "",
           }),
         });
         if (resp.ok) {
@@ -147,7 +148,7 @@ const ScanOverlay = () => {
       setScanComplete(true);
       setTimeout(() => setShowAnalysis(true), 500);
       // Fire off image searches in parallel
-      fetchImagesForItems(itemsWithLoading);
+      fetchImagesForItems(itemsWithLoading, contextHint);
     } catch (err: any) {
       console.error("AI analysis failed:", err);
       setIsScanning(false);
