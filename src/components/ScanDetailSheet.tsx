@@ -89,6 +89,25 @@ const ItemCard = ({
         >
           {isSoldOut ? "Sold Out" : "In Stock"}
         </span>
+        {/* Match quality label */}
+        {item.match_label && item.match_label !== "Exact Match" && (
+          <span
+            className={`absolute bottom-1.5 left-1.5 text-[7px] font-display font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
+              item.match_label === "Brand Match"
+                ? "bg-gold/80 text-foreground"
+                : item.match_label === "Resale · Pre-owned"
+                ? "bg-muted text-muted-foreground"
+                : "bg-muted text-muted-foreground/70"
+            }`}
+          >
+            {item.match_label}
+          </span>
+        )}
+        {item.match_label === "Exact Match" && (
+          <span className="absolute bottom-1.5 left-1.5 text-[7px] font-display font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/90 text-accent-foreground">
+            ✓ Exact Match
+          </span>
+        )}
       </div>
 
       {/* Info */}
