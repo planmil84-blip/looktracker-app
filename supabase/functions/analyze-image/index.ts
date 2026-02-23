@@ -93,6 +93,7 @@ Return ONLY valid JSON. No markdown, no explanation, no code fences.`,
         ],
         temperature: 0.1,
         max_tokens: 4000,
+        response_format: { type: "json_object" },
       }),
     });
 
