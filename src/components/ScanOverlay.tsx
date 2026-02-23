@@ -42,7 +42,11 @@ export interface AnalyzedItem {
 
 const ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-image`;
 
-async function analyzeImage(file: File, context: string): Promise<AnalyzedItem[]> {
+async function analyzeImage(
+  file: File,
+  context: string,
+  onSlow?: () => void,
+): Promise<AnalyzedItem[]> {
   const base64 = await new Promise<string>((resolve) => {
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -52,18 +56,34 @@ async function analyzeImage(file: File, context: string): Promise<AnalyzedItem[]
     reader.readAsDataURL(file);
   });
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
-  const resp = await fetch(ANALYZE_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-    },
-    body: JSON.stringify({ imageBase64: base64, context: context || undefined }),
-    signal: controller.signal,
-  });
-  clearTimeout(timeout);
+  const doFetch = async (timeoutMs: number) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const resp = await fetch(ANALYZE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ imageBase64: base64, context: context || undefined }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    return resp;
+  };
+
+  let resp: Response;
+  try {
+    resp = await doFetch(15000);
+  } catch (e: any) {
+    if (e.name === "AbortError") {
+      onSlow?.();
+      // Retry once with 30s timeout
+      resp = await doFetch(30000);
+    } else {
+      throw e;
+    }
+  }
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ error: "Unknown error" }));
@@ -75,7 +95,6 @@ async function analyzeImage(file: File, context: string): Promise<AnalyzedItem[]
   return (data.items || []).map((item: any) => ({
     ...item,
     celebrity_name,
-    // backward compat aliases
     model: item.product_name || item.model,
     estimatedPrice: item.original_price || item.estimatedPrice,
   }));
@@ -95,6 +114,7 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>([]);
+  const [slowMessage, setSlowMessage] = useState(false);
   const { toast } = useToast();
   const externalTriggered = useRef(false);
 
@@ -171,8 +191,9 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
           const resp = await fetch(externalImageUrl);
           const blob = await resp.blob();
           const file = new File([blob], "celeb-look.jpg", { type: blob.type });
-          const items = await analyzeImage(file, externalContext || "");
+          const items = await analyzeImage(file, externalContext || "", () => setSlowMessage(true));
           const itemsWithLoading = items.map((it) => ({ ...it, imageLoading: true }));
+          setSlowMessage(false);
           setAnalyzedItems(itemsWithLoading);
           setIsScanning(false);
           setScanComplete(true);
@@ -205,9 +226,10 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
     setIsScanning(true);
 
     try {
-      const items = await analyzeImage(file, contextHint);
+      const items = await analyzeImage(file, contextHint, () => setSlowMessage(true));
       // Mark items as loading images
       const itemsWithLoading = items.map((it) => ({ ...it, imageLoading: true }));
+      setSlowMessage(false);
       setAnalyzedItems(itemsWithLoading);
       setIsScanning(false);
       setScanComplete(true);
@@ -237,6 +259,7 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
     setShowAnalysis(false);
     setShowDetail(false);
     setAnalyzedItems([]);
+    setSlowMessage(false);
   };
 
   const scanResults = analyzedItems.slice(0, 3).map((item, i) => {
@@ -319,7 +342,9 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
                   <div className="flex flex-col items-center gap-2">
                     <ScanLine className="w-6 h-6 text-accent animate-pulse" />
                     <span className="text-xs font-display font-semibold text-accent tracking-widest uppercase">
-                      Real-time AI Analysis in Progress...
+                      {slowMessage
+                        ? "데이터가 많아 분석이 조금 늦어지고 있습니다. 잠시만 기다려주세요..."
+                        : "Real-time AI Analysis in Progress..."}
                     </span>
                   </div>
                 </div>
