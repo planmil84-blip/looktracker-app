@@ -125,8 +125,9 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
 
     // Fire ALL requests in parallel with Promise.allSettled
     const promises = items.map(async (item, idx) => {
-      if (!item.brand || !(item.product_name || item.model)) {
-        // Skip items without brand/model — mark as done
+      const searchBrand = item.brand || "Unknown";
+      const searchModel = item.product_name || item.model || item.category || "";
+      if (!searchModel) {
         setAnalyzedItems((prev) =>
           prev.map((it, i) => (i === idx ? { ...it, imageLoading: false, match_label: "No Match" } : it))
         );
@@ -142,8 +143,8 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
             Authorization: `Bearer ${SUPABASE_KEY}`,
           },
           body: JSON.stringify({
-            brand: item.brand,
-            model: item.product_name || item.model || "",
+            brand: searchBrand,
+            model: searchModel,
             color: item.color || "",
             category: item.category || "",
             material: item.material || "",
