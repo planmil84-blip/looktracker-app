@@ -86,12 +86,15 @@ serve(async (req) => {
     const { brand, model, color, category, material, search_keywords, is_vintage, context_hint, blog_search_queries, celebrity_name } =
       await req.json();
 
-    if (!brand || !model) {
+    if (!brand) {
       return new Response(
-        JSON.stringify({ error: "brand and model are required" }),
+        JSON.stringify({ error: "brand is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Fallback: use brand as model if model is empty
+    const effectiveModel = model || brand;
 
     const SERPAPI_KEY = Deno.env.get("SERPAPI_API_KEY");
     if (!SERPAPI_KEY) throw new Error("SERPAPI_API_KEY is not configured");
@@ -99,12 +102,12 @@ serve(async (req) => {
     const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY");
 
     // Build a rich description string for visual verification later
-    const itemDescription = search_keywords || `${brand} ${model} ${color || ""} ${material || ""}`.trim();
+    const itemDescription = search_keywords || `${brand} ${effectiveModel} ${color || ""} ${material || ""}`.trim();
     console.log("Item description for matching:", itemDescription);
     console.log("Celebrity:", celebrity_name || "Unknown");
 
     // ─── 0) Blog/Community Pre-Search: confirm exact product identity ──
-    let confirmedProductName = model;
+    let confirmedProductName = effectiveModel;
     if (blog_search_queries && blog_search_queries.length > 0 && SERPAPI_KEY) {
       console.log("Running blog pre-search to confirm product identity...");
       for (const blogQuery of blog_search_queries.slice(0, 2)) {
@@ -207,9 +210,9 @@ serve(async (req) => {
     if (is_vintage || uniqueCandidates.length < 3) {
       console.log("Searching resale platforms...");
       const resaleQueries = [
-        { q: `${brand} ${model} site:grailed.com`, platform: "Grailed" },
-        { q: `${brand} ${model} site:vestiairecollective.com`, platform: "Vestiaire Collective" },
-        { q: `${brand} ${model} site:therealreal.com`, platform: "The RealReal" },
+        { q: `${brand} ${effectiveModel} site:grailed.com`, platform: "Grailed" },
+        { q: `${brand} ${effectiveModel} site:vestiairecollective.com`, platform: "Vestiaire Collective" },
+        { q: `${brand} ${effectiveModel} site:therealreal.com`, platform: "The RealReal" },
       ];
 
       const resalePromises = resaleQueries.map(async ({ q, platform }) => {
@@ -270,7 +273,7 @@ serve(async (req) => {
         bestResult = {
           imageUrl: top.thumbnail,
           source: "google_shopping",
-          productTitle: top.title || `${brand} ${model}`,
+          productTitle: top.title || `${brand} ${effectiveModel}`,
           sellers,
           match_label: verdictToLabel(top.verdict),
         };
@@ -279,7 +282,7 @@ serve(async (req) => {
         bestResult = {
           imageUrl: top.thumbnail,
           source: "google_shopping",
-          productTitle: top.title || `${brand} ${model}`,
+          productTitle: top.title || `${brand} ${effectiveModel}`,
           sellers: [{ name: top.source, price: top.price, currency: top.currency, link: top.link, thumbnail: top.thumbnail }],
           match_label: "Similar Style",
         };
@@ -289,7 +292,7 @@ serve(async (req) => {
       const best = uniqueCandidates[0];
       const titleLower = best.title.toLowerCase();
       const brandLower = brand.toLowerCase();
-      const modelLower = model.toLowerCase();
+      const modelLower = effectiveModel.toLowerCase();
       let label = "Similar Style";
       if (titleLower.includes(brandLower) && titleLower.includes(modelLower.split(" ")[0])) {
         label = "Exact Match";
@@ -300,7 +303,7 @@ serve(async (req) => {
       bestResult = {
         imageUrl: best.thumbnail,
         source: "google_shopping",
-        productTitle: best.title || `${brand} ${model}`,
+        productTitle: best.title || `${brand} ${effectiveModel}`,
         sellers: uniqueCandidates.slice(0, 5).map((r) => ({
           name: r.source,
           price: r.price,
@@ -318,7 +321,7 @@ serve(async (req) => {
       bestResult = {
         imageUrl: best.thumbnail,
         source: "resale",
-        productTitle: best.title || `${brand} ${model}`,
+        productTitle: best.title || `${brand} ${effectiveModel}`,
         sellers: resaleCandidates.map((r) => ({
           name: r.platform,
           price: 0,
@@ -334,7 +337,7 @@ serve(async (req) => {
     if (!bestResult) {
       console.log("Trying Google Images fallback...");
       const data = await serpSearch("google_images", {
-        q: `${brand} ${model} white background product shot`,
+        q: `${brand} ${effectiveModel} white background product shot`,
         num: "5",
       }, SERPAPI_KEY);
 
@@ -343,7 +346,7 @@ serve(async (req) => {
         bestResult = {
           imageUrl: imgs[0].thumbnail || imgs[0].original,
           source: "google_images",
-          productTitle: imgs[0].title || `${brand} ${model}`,
+          productTitle: imgs[0].title || `${brand} ${effectiveModel}`,
           sellers: [],
           match_label: "Similar Style",
         };
