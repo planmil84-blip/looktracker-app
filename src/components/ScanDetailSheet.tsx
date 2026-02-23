@@ -62,7 +62,9 @@ const ItemCard = ({
   onClick: () => void;
   formatPrice: (usd: number) => string;
 }) => {
-  const price = item.original_price || item.estimatedPrice || 0;
+  // Use real seller price if available, fallback to AI estimate
+  const sellerPrice = item.sellers?.filter(s => s.price > 0).map(s => s.price);
+  const price = (sellerPrice && sellerPrice.length > 0) ? Math.min(...sellerPrice) : (item.original_price || item.estimatedPrice || 0);
   const isSoldOut = !deriveInStock(item);
 
   return (
@@ -298,7 +300,18 @@ const ScanDetailSheet = ({ open, onClose, analyzedItems = [] }: ScanDetailSheetP
   const searchQuery = selectedItem
     ? encodeURIComponent(`${selectedItem.brand} ${selectedItem.product_name || selectedItem.model || ""}`)
     : "";
-  const basePrice = selectedItem ? (selectedItem.original_price || selectedItem.estimatedPrice || 0) : 0;
+
+  // Use best available price: real seller price > AI estimated price > 0
+  const getBestPrice = (item: AnalyzedItem | null): number => {
+    if (!item) return 0;
+    // Check if we have real seller prices
+    if (item.sellers && item.sellers.length > 0) {
+      const validPrices = item.sellers.filter(s => s.price > 0).map(s => s.price);
+      if (validPrices.length > 0) return Math.min(...validPrices);
+    }
+    return item.original_price || item.estimatedPrice || 0;
+  };
+  const basePrice = getBestPrice(selectedItem);
 
   const marketTabs: { key: MarketTab; label: string; icon: typeof Store }[] = [
     { key: "official", label: "Official", icon: Store },

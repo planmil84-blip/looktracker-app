@@ -265,14 +265,16 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
   };
 
   const scanResults = analyzedItems.slice(0, 3).map((item, i) => {
-    // Derive stock from sellers data: in stock if any seller has price > 0
     const hasStock = item.sellers && item.sellers.length > 0
       ? item.sellers.some((s) => s.price > 0 && s.link)
       : item.official_status !== "Sold Out";
+    // Use real seller prices when available
+    const sellerPrices = item.sellers?.filter(s => s.price > 0).map(s => s.price);
+    const bestPrice = (sellerPrices && sellerPrices.length > 0) ? Math.min(...sellerPrices) : (item.original_price || item.estimatedPrice || 0);
     return {
       brand: item.brand,
       model: item.product_name || item.model || "",
-      price: item.original_price || item.estimatedPrice || 0,
+      price: bestPrice,
       inStock: hasStock,
       confidence: item.confidence,
       top: 25 + i * 25,
