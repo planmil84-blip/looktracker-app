@@ -52,6 +52,8 @@ async function analyzeImage(file: File, context: string): Promise<AnalyzedItem[]
     reader.readAsDataURL(file);
   });
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
   const resp = await fetch(ANALYZE_URL, {
     method: "POST",
     headers: {
@@ -59,7 +61,9 @@ async function analyzeImage(file: File, context: string): Promise<AnalyzedItem[]
       Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
     body: JSON.stringify({ imageBase64: base64, context: context || undefined }),
+    signal: controller.signal,
   });
+  clearTimeout(timeout);
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ error: "Unknown error" }));
@@ -100,6 +104,8 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
     // Fire ALL requests in parallel with Promise.allSettled
     const promises = items.map(async (item, idx) => {
       try {
+        const searchController = new AbortController();
+        const searchTimeout = setTimeout(() => searchController.abort(), 30000);
         const resp = await fetch(SEARCH_URL, {
           method: "POST",
           headers: {
@@ -118,7 +124,9 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
             blog_search_queries: item.blog_search_queries || [],
             celebrity_name: item.celebrity_name || "",
           }),
+          signal: searchController.signal,
         });
+        clearTimeout(searchTimeout);
         if (resp.ok) {
           const data = await resp.json();
           if (data.imageUrl || data.sellers?.length) {
