@@ -72,6 +72,7 @@ Return ONLY valid JSON: {"score": 0-100, "verdict": "MATCH"|"SIMILAR"|"MISMATCH"
         ],
         temperature: 0.1,
         max_tokens: 1000,
+        response_format: { type: "json_object" },
       }),
     });
     if (!resp.ok) return { score: 45, verdict: "SIMILAR" };
