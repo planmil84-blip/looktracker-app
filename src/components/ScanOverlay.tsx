@@ -40,7 +40,9 @@ export interface AnalyzedItem {
   sellers?: SellerInfo[];
 }
 
-const ANALYZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-image`;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
+const ANALYZE_URL = `${SUPABASE_URL}/functions/v1/analyze-image`;
 
 async function analyzeImage(
   file: File,
@@ -63,7 +65,7 @@ async function analyzeImage(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
       },
       body: JSON.stringify({ imageBase64: base64, context: context || undefined }),
       signal: controller.signal,
@@ -119,7 +121,7 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
   const externalTriggered = useRef(false);
 
   const fetchImagesForItems = useCallback(async (items: AnalyzedItem[], hint: string) => {
-    const SEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-product-image`;
+    const SEARCH_URL = `${SUPABASE_URL}/functions/v1/search-product-image`;
 
     // Fire ALL requests in parallel with Promise.allSettled
     const promises = items.map(async (item, idx) => {
@@ -130,7 +132,7 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
           },
           body: JSON.stringify({
             brand: item.brand,
