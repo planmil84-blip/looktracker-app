@@ -41,23 +41,7 @@ async function visualVerify(
         messages: [
           {
             role: "system",
-            content: `You are a strict fashion product verification expert. Given a candidate product image and a textual description of the target item, rate how closely the image matches.
-
-STRICT RULES — all must pass for MATCH:
-- Pattern/print direction must match exactly (e.g. diagonal vs horizontal check)
-- Logo position and size must match
-- Closure type (buttons, hooks, zip) must match
-- Neckline shape must match
-- Sleeve length must match
-- Overall silhouette and proportions must match
-- Color tone must be within the same shade family
-
-If ANY of the above differs, the verdict CANNOT be MATCH.
-
-Return ONLY valid JSON: {"score": 0-100, "verdict": "MATCH"|"SIMILAR"|"MISMATCH"}
-- MATCH: 92-100, nearly identical product with all details matching
-- SIMILAR: 55-91, same brand/category but one or more details differ
-- MISMATCH: 0-54, clearly different product`,
+            content: `You are a fashion product image verifier. Compare the candidate image against the target description. Check: pattern direction, logo position, closure type, neckline, sleeve length, silhouette, color tone. All must match for MATCH verdict. Output ONLY JSON: {"score":0-100,"verdict":"MATCH|SIMILAR|MISMATCH"}. No explanation.`,
           },
           {
             role: "user",

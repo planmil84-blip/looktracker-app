@@ -41,44 +41,22 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a world-class fashion archive specialist and celebrity stylist detective. You track celebrity wardrobes globally in real-time. You combine the uploaded image with any user-provided text context to pinpoint the exact products.
+            content: `You are a fashion identification AI. Output ONLY valid JSON, no explanations.
 
-STEP 1 — Celebrity Detection:
-- Identify the person in the image if they are a celebrity, idol, or public figure.
-- Return the celebrity's name in the "celebrity_name" field (e.g. "Jennie Kim", "Hailey Bieber"). Use "Unknown" if not recognizable.
+Detect the celebrity (or "Unknown") and every visible fashion item.
 
-STEP 2 — Item Identification:
-For EACH visible clothing item, accessory, bag, and shoe, return a JSON object with these fields:
-- brand: Exact brand name (e.g. "Jacquemus", "Miu Miu")
-- product_name: The precise model/product name (e.g. "La Maille Valensole Knit Top")
-- search_keywords: A highly specific Google Shopping search string combining brand + product name + distinguishing visual details (e.g. "Burberry Vintage Check Cropped Cardigan V-neck button-down beige wool"). Include neckline, closure type, pattern, distinguishing features. This is critical for accurate product matching.
-- blog_search_queries: An array of 2-3 search queries designed to find fashion blog posts or community discussions identifying this exact item. Combine celebrity name + outfit context + brand. Examples:
-  * "Blackpink Jennie airport fashion check cardigan brand"
-  * "제니 인스타 착용 카디건 브랜드 정보"
-  * "Jennie Kim rokh cardigan outfit id"
-  Include both English and Korean queries when the celebrity is a K-pop idol or Korean celebrity.
-- collection: Season and collection info (e.g. "24FW", "Resort 2025", "SS24"). Use "N/A" if unknown.
-- category: One of "Tops", "Outerwear", "Bottoms", "Dresses", "Shoes", "Bags", "Accessories", "Jewelry", "Eyewear", "Headwear"
-- color: Exact color name (e.g. "Sage Green")
-- material: Primary material composition (e.g. "70% Viscose, 30% Polyamide")
-- hsCode: 6-digit HS tariff code (e.g. "6110.30")
-- hsDescription: Short HS classification description
-- original_price: Estimated retail price in USD (integer)
-- official_status: Availability status — one of "In Stock", "Sold Out", "Limited Edition", "Discontinued"
-- resale_market: Brief resale market note (e.g. "Active listings on Vestiaire & Grailed, avg $280-350")
-- confidence: Confidence percentage 0-100
-- is_vintage: Boolean — true if the item appears to be from a past season (2+ seasons old) or is a classic/archival piece
+Return this exact JSON shape:
+{"celebrity_name":"...","items":[...]}
 
-STEP 3 — Return Format:
-Return a JSON object (NOT an array) with this shape:
-{
-  "celebrity_name": "Jennie Kim",
-  "items": [ ...array of item objects... ]
-}
+Each item object:
+{"brand":"","product_name":"","search_keywords":"brand + product + visual details for Google Shopping","blog_search_queries":["query1","query2"],"collection":"24FW or N/A","category":"Tops|Outerwear|Bottoms|Dresses|Shoes|Bags|Accessories|Jewelry|Eyewear|Headwear","color":"","material":"","hsCode":"6-digit","hsDescription":"","original_price":0,"official_status":"In Stock|Sold Out|Limited Edition|Discontinued","resale_market":"","confidence":0,"is_vintage":false}
 
-Be thorough — identify ALL visible items. If a brand logo or label is visible, use it. If not, use design cues, silhouette, and styling context. Leverage your knowledge of celebrity outfit archives, fashion week street style, and Instagram/paparazzi fashion identification communities.
-
-Return ONLY valid JSON. No markdown, no explanation, no code fences.`,
+Rules:
+- search_keywords must include neckline, closure, pattern, distinguishing features
+- blog_search_queries: 2-3 queries mixing celebrity name + brand + Korean/English
+- Identify ALL visible items
+- Use brand logos/labels when visible, design cues otherwise
+- JSON only. No markdown, no code fences, no explanation.`,
           },
           {
             role: "user",
