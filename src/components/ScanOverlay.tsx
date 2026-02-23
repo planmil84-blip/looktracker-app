@@ -125,6 +125,13 @@ const ScanOverlay = ({ externalImageUrl, externalContext, onExternalConsumed }: 
 
     // Fire ALL requests in parallel with Promise.allSettled
     const promises = items.map(async (item, idx) => {
+      if (!item.brand || !(item.product_name || item.model)) {
+        // Skip items without brand/model — mark as done
+        setAnalyzedItems((prev) =>
+          prev.map((it, i) => (i === idx ? { ...it, imageLoading: false, match_label: "No Match" } : it))
+        );
+        return;
+      }
       try {
         const searchController = new AbortController();
         const searchTimeout = setTimeout(() => searchController.abort(), 30000);
