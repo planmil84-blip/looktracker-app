@@ -40,8 +40,8 @@ export interface AnalyzedItem {
   sellers?: SellerInfo[];
 }
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://sbppzntxxgukugtkojcz.supabase.co";
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNicHB6bnR4eGd1a3VndGtvamN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMzcyNTcsImV4cCI6MjA4NjkxMzI1N30.pVJs_S4w_TXCSQ3-p_Y_dNg3H05ZMRp2-YEzlFUEOh8";
 const ANALYZE_URL = `${SUPABASE_URL}/functions/v1/analyze-image`;
 
 async function analyzeImage(
