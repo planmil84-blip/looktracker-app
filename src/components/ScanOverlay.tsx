@@ -76,12 +76,12 @@ async function analyzeImage(
 
   let resp: Response;
   try {
-    resp = await doFetch(15000);
+    resp = await doFetch(30000);
   } catch (e: any) {
     if (e.name === "AbortError") {
       onSlow?.();
-      // Retry once with 30s timeout
-      resp = await doFetch(30000);
+      // Retry once with 60s timeout
+      resp = await doFetch(60000);
     } else {
       throw e;
     }
