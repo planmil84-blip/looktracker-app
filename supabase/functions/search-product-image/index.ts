@@ -86,15 +86,8 @@ serve(async (req) => {
     const { brand, model, color, category, material, search_keywords, is_vintage, context_hint, blog_search_queries, celebrity_name } =
       await req.json();
 
-    if (!brand) {
-      return new Response(
-        JSON.stringify({ error: "brand is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Fallback: use brand as model if model is empty
-    const effectiveModel = model || brand;
+    const effectiveBrand = brand || "Unknown";
+    const effectiveModel = model || category || effectiveBrand;
 
     const SERPAPI_KEY = Deno.env.get("SERPAPI_API_KEY");
     if (!SERPAPI_KEY) throw new Error("SERPAPI_API_KEY is not configured");
@@ -102,9 +95,10 @@ serve(async (req) => {
     const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY");
 
     // Build a rich description string for visual verification later
-    const itemDescription = search_keywords || `${brand} ${effectiveModel} ${color || ""} ${material || ""}`.trim();
+    const itemDescription = search_keywords || `${effectiveBrand} ${effectiveModel} ${color || ""} ${material || ""}`.trim();
     console.log("Item description for matching:", itemDescription);
     console.log("Celebrity:", celebrity_name || "Unknown");
+    console.log("Brand:", effectiveBrand, "Model:", effectiveModel);
 
     // ─── 0) Blog/Community Pre-Search: confirm exact product identity ──
     let confirmedProductName = effectiveModel;
@@ -115,7 +109,7 @@ serve(async (req) => {
         if (blogData?.organic_results) {
           for (const r of blogData.organic_results.slice(0, 3)) {
             const snippet = `${r.title || ""} ${r.snippet || ""}`.toLowerCase();
-            const brandLower = brand.toLowerCase();
+            const brandLower = effectiveBrand.toLowerCase();
             // If a blog result mentions the brand AND a specific product name, extract it
             if (snippet.includes(brandLower)) {
               console.log(`Blog confirmation found: "${r.title?.slice(0, 60)}"`);
@@ -134,23 +128,23 @@ serve(async (req) => {
     if (search_keywords) {
       queryVariants.push(search_keywords);
     }
-    queryVariants.push(`${brand} ${confirmedProductName}${color ? ` ${color}` : ""}`);
+    queryVariants.push(`${effectiveBrand} ${confirmedProductName}${color ? ` ${color}` : ""}`);
 
     // Celebrity-based queries for fashion blog/archive matching
     if (celebrity_name && celebrity_name !== "Unknown") {
-      queryVariants.push(`${celebrity_name} ${brand} ${confirmedProductName}`);
-      queryVariants.push(`${celebrity_name} outfit ${brand} ${category || ""}`);
+      queryVariants.push(`${celebrity_name} ${effectiveBrand} ${confirmedProductName}`);
+      queryVariants.push(`${celebrity_name} outfit ${effectiveBrand} ${category || ""}`);
     }
 
     // Context hint integration (e.g. "제니 공항룩")
     if (context_hint) {
-      queryVariants.push(`${context_hint} ${brand} ${confirmedProductName}`);
+      queryVariants.push(`${context_hint} ${effectiveBrand} ${confirmedProductName}`);
     }
 
     // Archive/vintage variants for past-season items
     if (is_vintage) {
-      queryVariants.push(`${brand} ${confirmedProductName} archive`);
-      queryVariants.push(`${brand} ${confirmedProductName} vintage used`);
+      queryVariants.push(`${effectiveBrand} ${confirmedProductName} archive`);
+      queryVariants.push(`${effectiveBrand} ${confirmedProductName} vintage used`);
     }
 
     console.log("Query variants:", queryVariants);
@@ -161,7 +155,7 @@ serve(async (req) => {
 
     // Preferred sources get priority in ranking
     const preferredSources = new Set(["ssense", "mytheresa", "farfetch", "net-a-porter", "matchesfashion", "nordstrom", "selfridges"]);
-    const isBrandOfficial = (src: string) => src.toLowerCase().includes(brand.toLowerCase());
+    const isBrandOfficial = (src: string) => src.toLowerCase().includes(effectiveBrand.toLowerCase());
 
     // Fire up to 3 queries in parallel for speed
     const shoppingResults = await Promise.all(
